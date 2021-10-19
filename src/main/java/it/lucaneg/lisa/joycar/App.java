@@ -24,6 +24,7 @@ import it.unive.lisa.program.cfg.edge.SequentialEdge;
 import it.unive.lisa.program.cfg.edge.TrueEdge;
 import it.unive.lisa.program.cfg.statement.Assignment;
 import it.unive.lisa.program.cfg.statement.Ret;
+import it.unive.lisa.program.cfg.statement.Return;
 import it.unive.lisa.program.cfg.statement.Statement;
 import it.unive.lisa.program.cfg.statement.VariableRef;
 import it.unive.lisa.program.cfg.statement.call.UnresolvedCall;
@@ -41,6 +42,7 @@ import it.unive.lisa.type.common.Int32;
 public class App {
 
 	private static final String JAVA_SRC = "JoyCar.java";
+	private static final String CPP_SRC = "JoyCar.cpp";
 	private static final Logger LOG = LogManager.getLogger(App.class);
 
 	private static final CodeLocation LIB_LOCATION = new CodeLocation() {
@@ -88,6 +90,11 @@ public class App {
 				VoidType.INSTANCE, new Parameter[] { new Parameter(classLoc, "this", jcType) }));
 		jc.addInstanceCFG(constructor);
 
+		buildJavaMain(jc, jcType);
+		buildNativeMethods(jc, jcType);
+	}
+
+	private static void buildJavaMain(CompilationUnit jc, ClassType jcType) {
 		Type stringType = ClassType.lookup(ClassType.JAVA_LANG_STRING, null);
 		ArrayType stringArrayType = ArrayType.lookup(stringType, 1);
 		Parameter param = new Parameter(mkJavaLoc(31, 38), "args", stringArrayType);
@@ -206,6 +213,124 @@ public class App {
 		main.addEdge(new FalseEdge(condition, first));
 	}
 
+	private static void buildNativeMethods(CompilationUnit jc, ClassType jcType) {
+		SourceCodeLocation natLoc = mkJavaLoc(4, 23);
+		CFG nat = new CFG(new CFGDescriptor(natLoc, jc, true, "initializeWiringPi", Int32.INSTANCE,
+				new Parameter[] { new Parameter(natLoc, "this", jcType) }));
+		Statement body = new Return(nat, natLoc, 
+				new UnresolvedCall(nat, natLoc, ResolutionStrategy.STATIC_TYPES, false, "Java_JoyCar_initializeWiringPi", 
+				new VariableRef(nat, natLoc, "this", jcType)));
+		nat.addNode(body, true);
+		jc.addInstanceCFG(nat);
+		
+		natLoc = mkJavaLoc(6, 24);
+		nat = new CFG(new CFGDescriptor(natLoc, jc, true, "initializePCF8591", VoidType.INSTANCE,
+				new Parameter[] { new Parameter(natLoc, "this", jcType) }));
+		body = new UnresolvedCall(nat, natLoc, ResolutionStrategy.STATIC_TYPES, false, "Java_JoyCar_initializePCF8591", 
+				new VariableRef(nat, natLoc, "this", jcType));
+		nat.addNode(body, true);
+		Statement ret = new Ret(nat, natLoc);
+		nat.addNode(ret);
+		nat.addEdge(new SequentialEdge(body, ret));
+		jc.addInstanceCFG(nat);
+		
+		natLoc = mkJavaLoc(8, 23);
+		nat = new CFG(new CFGDescriptor(natLoc, jc, true, "readUpDown", Int32.INSTANCE,
+				new Parameter[] { new Parameter(natLoc, "this", jcType) }));
+		body = new Return(nat, natLoc, 
+				new UnresolvedCall(nat, natLoc, ResolutionStrategy.STATIC_TYPES, false, "Java_JoyCar_readUpDown", 
+				new VariableRef(nat, natLoc, "this", jcType)));
+		nat.addNode(body, true);
+		jc.addInstanceCFG(nat);
+		
+		natLoc = mkJavaLoc(10, 23);
+		nat = new CFG(new CFGDescriptor(natLoc, jc, true, "readLeftRight", Int32.INSTANCE,
+				new Parameter[] { new Parameter(natLoc, "this", jcType) }));
+		body = new Return(nat, natLoc, 
+				new UnresolvedCall(nat, natLoc, ResolutionStrategy.STATIC_TYPES, false, "Java_JoyCar_readLeftRight", 
+				new VariableRef(nat, natLoc, "this", jcType)));
+		nat.addNode(body, true);
+		jc.addInstanceCFG(nat);
+		
+		natLoc = mkJavaLoc(12, 27);
+		nat = new CFG(new CFGDescriptor(natLoc, jc, true, "isButtonPressed", BoolType.INSTANCE,
+				new Parameter[] { new Parameter(natLoc, "this", jcType) }));
+		body = new Return(nat, natLoc, 
+				new UnresolvedCall(nat, natLoc, ResolutionStrategy.STATIC_TYPES, false, "Java_JoyCar_isButtonPressed", 
+				new VariableRef(nat, natLoc, "this", jcType)));
+		nat.addNode(body, true);
+		ret = new Ret(nat, natLoc);
+		nat.addNode(ret);
+		nat.addEdge(new SequentialEdge(body, ret));
+		jc.addInstanceCFG(nat);
+		
+		natLoc = mkJavaLoc(14, 24);
+		nat = new CFG(new CFGDescriptor(natLoc, jc, true, "initializeServo", VoidType.INSTANCE,
+				new Parameter[] { new Parameter(natLoc, "this", jcType) }));
+		body = new UnresolvedCall(nat, natLoc, ResolutionStrategy.STATIC_TYPES, false, "Java_JoyCar_initializeServo", 
+				new VariableRef(nat, natLoc, "this", jcType));
+		nat.addNode(body, true);
+		ret = new Ret(nat, natLoc);
+		nat.addNode(ret);
+		nat.addEdge(new SequentialEdge(body, ret));
+		jc.addInstanceCFG(nat);
+		
+		natLoc = mkJavaLoc(16, 24);
+		nat = new CFG(new CFGDescriptor(natLoc, jc, true, "turnRight", VoidType.INSTANCE,
+				new Parameter[] { new Parameter(natLoc, "this", jcType) }));
+		body = new UnresolvedCall(nat, natLoc, ResolutionStrategy.STATIC_TYPES, false, "Java_JoyCar_turnRight", 
+				new VariableRef(nat, natLoc, "this", jcType));
+		nat.addNode(body, true);
+		ret = new Ret(nat, natLoc);
+		nat.addNode(ret);
+		nat.addEdge(new SequentialEdge(body, ret));
+		jc.addInstanceCFG(nat);
+		
+		natLoc = mkJavaLoc(18, 24);
+		nat = new CFG(new CFGDescriptor(natLoc, jc, true, "turnLeft", VoidType.INSTANCE,
+				new Parameter[] { new Parameter(natLoc, "this", jcType) }));
+		body = new UnresolvedCall(nat, natLoc, ResolutionStrategy.STATIC_TYPES, false, "Java_JoyCar_turnLeft", 
+				new VariableRef(nat, natLoc, "this", jcType));
+		nat.addNode(body, true);
+		ret = new Ret(nat, natLoc);
+		nat.addNode(ret);
+		nat.addEdge(new SequentialEdge(body, ret));
+		jc.addInstanceCFG(nat);
+		
+		natLoc = mkJavaLoc(20, 24);
+		nat = new CFG(new CFGDescriptor(natLoc, jc, true, "turnAtAngle", VoidType.INSTANCE,
+				new Parameter[] { new Parameter(natLoc, "this", jcType), new Parameter(natLoc, "angle", Int32.INSTANCE) }));
+		body = new UnresolvedCall(nat, natLoc, ResolutionStrategy.STATIC_TYPES, false, "Java_JoyCar_turnAtAngle", 
+				new VariableRef(nat, natLoc, "this", jcType), new VariableRef(nat, natLoc, "angle", Int32.INSTANCE));
+		nat.addNode(body, true);
+		ret = new Ret(nat, natLoc);
+		nat.addNode(ret);
+		nat.addEdge(new SequentialEdge(body, ret));
+		jc.addInstanceCFG(nat);
+		
+		natLoc = mkJavaLoc(22, 24);
+		nat = new CFG(new CFGDescriptor(natLoc, jc, true, "initializeMotor", VoidType.INSTANCE,
+				new Parameter[] { new Parameter(natLoc, "this", jcType) }));
+		body = new UnresolvedCall(nat, natLoc, ResolutionStrategy.STATIC_TYPES, false, "Java_JoyCar_initializeMotor", 
+				new VariableRef(nat, natLoc, "this", jcType));
+		nat.addNode(body, true);
+		ret = new Ret(nat, natLoc);
+		nat.addNode(ret);
+		nat.addEdge(new SequentialEdge(body, ret));
+		jc.addInstanceCFG(nat);
+		
+		natLoc = mkJavaLoc(24, 24);
+		nat = new CFG(new CFGDescriptor(natLoc, jc, true, "runMotor", VoidType.INSTANCE,
+				new Parameter[] { new Parameter(natLoc, "this", jcType), new Parameter(natLoc, "value", Int32.INSTANCE) }));
+		body = new UnresolvedCall(nat, natLoc, ResolutionStrategy.STATIC_TYPES, false, "Java_JoyCar_runMotor", 
+				new VariableRef(nat, natLoc, "this", jcType), new VariableRef(nat, natLoc, "value", Int32.INSTANCE));
+		nat.addNode(body, true);
+		ret = new Ret(nat, natLoc);
+		nat.addNode(ret);
+		nat.addEdge(new SequentialEdge(body, ret));		
+		jc.addInstanceCFG(nat);		
+	}
+
 	private static void buildObject(Program program) {
 		CompilationUnit object = new CompilationUnit(LIB_LOCATION, ClassType.JAVA_LANG_OBJECT, false);
 		program.addCompilationUnit(object);
@@ -216,8 +341,8 @@ public class App {
 		CompilationUnit string = new CompilationUnit(LIB_LOCATION, ClassType.JAVA_LANG_STRING, false);
 		string.addSuperUnit(ClassType.lookup(ClassType.JAVA_LANG_OBJECT, null).getUnit());
 		program.addCompilationUnit(string);
-		new StringType(string); // this will automatically register it inside
-								// the types cache
+		 // this will automatically register it inside the types cache
+		new StringType(string);
 	}
 
 	private static SourceCodeLocation mkJavaLoc(int line, int col) {
@@ -225,6 +350,112 @@ public class App {
 	}
 
 	private static void buildCppCode(Program program) {
+		buildCommunicate(program);
+		buildJava_JoyCar_initializeWiringPi(program);
+		buildJava_JoyCar_initializePCF8591(program);
+		buildReadAnalog(program);
+		buildReadDigital(program);
+		buildJava_JoyCar_readUpDown(program);
+		buildJava_JoyCar_readLeftRight(program);
+		buildJava_JoyCar_isButtonPressed(program);
+		buildMap(program);
+		buildServoInit(program);
+		buildJava_JoyCar_turnAtAngle(program);
+		buildServoWriteMS(program);
+		buildJava_JoyCar_initializeServo(program);
+		buildJava_JoyCar_turnRight(program);
+		buildJava_JoyCar_turnLeft(program);
+		buildMotor(program);
+		buildJava_JoyCar_runMotor(program);
+		buildJava_JoyCar_runMotor(program);
+	}
+
+	private static void buildCommunicate(Program program) {
 		// TODO Auto-generated method stub
+		
+	}
+
+	private static void buildJava_JoyCar_initializeWiringPi(Program program) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	private static void buildJava_JoyCar_initializePCF8591(Program program) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	private static void buildReadAnalog(Program program) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	private static void buildReadDigital(Program program) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	private static void buildJava_JoyCar_readUpDown(Program program) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	private static void buildJava_JoyCar_readLeftRight(Program program) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	private static void buildJava_JoyCar_isButtonPressed(Program program) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	private static void buildMap(Program program) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	private static void buildServoInit(Program program) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	private static void buildJava_JoyCar_turnAtAngle(Program program) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	private static void buildServoWriteMS(Program program) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	private static void buildJava_JoyCar_initializeServo(Program program) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	private static void buildJava_JoyCar_turnRight(Program program) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	private static void buildJava_JoyCar_turnLeft(Program program) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	private static void buildMotor(Program program) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	private static void buildJava_JoyCar_runMotor(Program program) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	private static SourceCodeLocation mkCppLoc(int line, int col) {
+		return new SourceCodeLocation(CPP_SRC, line, col);
 	}
 }
