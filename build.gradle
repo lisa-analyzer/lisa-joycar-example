@@ -1,0 +1,15 @@
+plugins {
+    id 'application'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'com.github.unive-ssv:lisa-core:0.1b2'
+}
+
+application {
+    mainClass = 'it.lucaneg.lisa.joycar.App'
+}
