@@ -52,18 +52,19 @@ int readDigital(int pin) {
 }
 
 JNIEXPORT jint JNICALL Java_JoyCar_readUpDown(JNIEnv *env, jobject o) {
-  return readAnalog(A1);
+    return readAnalog(A1);
 }
 
 JNIEXPORT jint JNICALL Java_JoyCar_readLeftRight(JNIEnv *env, jobject o) {
 	return readAnalog(A0);
 }
+
 JNIEXPORT jboolean JNICALL Java_JoyCar_isButtonPressed(JNIEnv *env, jobject o) {
-  return readDigital(Z_Pin) == 0;
+    return readDigital(Z_Pin) == 0;
 }
 
 long map(long value, long fromLow, long fromHigh, long toLow, long toHigh) {
-    int result = (toHigh - toLow) * (value-fromLow) / (fromHigh - fromLow) + toLow;
+    int result = (toHigh - toLow) * (value - fromLow) / (fromHigh - fromLow) + toLow;
     return result;
 }
 
@@ -81,9 +82,9 @@ JNIEXPORT void JNICALL Java_JoyCar_turnAtAngle(JNIEnv *env, jobject o, jint angl
 }
 
 void servoWriteMS(int pin, int ms) { 
-    if(ms > SERVO_MAX_MS)
+    if (ms > SERVO_MAX_MS)
         ms = SERVO_MAX_MS;
-    if(ms < SERVO_MIN_MS)
+    if (ms < SERVO_MIN_MS)
         ms = SERVO_MIN_MS;
     communicate(pin, ms);
 }
@@ -109,11 +110,11 @@ JNIEXPORT void JNICALL Java_JoyCar_turnLeft(JNIEnv *env, jobject o) {
 }
 
 void motor(int ADC) {
-	int value = ADC -130;
+	int value = ADC - 130;
 	if (value > 0) {
 		digitalWrite(motorPin1, HIGH);
 		digitalWrite(motorPin2, LOW);
-	} else if (value<0) {
+	} else if (value < 0) {
 		digitalWrite(motorPin1, LOW);
 		digitalWrite(motorPin2, HIGH);
 	} else {
