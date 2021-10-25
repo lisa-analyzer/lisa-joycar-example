@@ -98,6 +98,7 @@ public class App {
 
 		CFG constructor = new CFG(new CFGDescriptor(classLoc, jc, true, "JoyCar", 
 				VoidType.INSTANCE, new Parameter(classLoc, "this", jcType)));
+		constructor.addNode(new Ret(constructor, classLoc), true);
 		jc.addInstanceCFG(constructor);
 
 		buildJavaMain(jc, jcType);
@@ -268,9 +269,6 @@ public class App {
 				new UnresolvedCall(nat, natLoc, ResolutionStrategy.STATIC_TYPES, false, "Java_JoyCar_isButtonPressed", 
 				new VariableRef(nat, natLoc, "this", jcType)));
 		nat.addNode(body, true);
-		ret = new Ret(nat, natLoc);
-		nat.addNode(ret);
-		nat.addEdge(new SequentialEdge(body, ret));
 		jc.addInstanceCFG(nat);
 		
 		natLoc = javaLoc(14, 24);
@@ -561,29 +559,30 @@ public class App {
 				new Parameter(cppLoc(75, 70), "o", ClassType.lookup(ClassType.JAVA_LANG_OBJECT, null)),
 				new Parameter(cppLoc(75, 77), "angle", Int32.INSTANCE)));
 		
-		Statement first = new GreaterThan(cfg, cppLoc(76, 15),
+		Statement condition = new GreaterThan(cfg, cppLoc(76, 15),
 				new VariableRef(cfg, cppLoc(76, 9), "angle", Int32.INSTANCE),
 				new Int32Literal(cfg, cppLoc(76, 17), 180));
-		cfg.addNode(first, true);
+		cfg.addNode(condition, true);
 		
-		Statement second = new Assignment(cfg, cppLoc(77, 15), 
+		Statement first = new Assignment(cfg, cppLoc(77, 15), 
 				new VariableRef(cfg, cppLoc(77, 9), "angle", Int32.INSTANCE),
 				new Int32Literal(cfg, cppLoc(77, 17), 180));
-		cfg.addNode(second);
-		cfg.addEdge(new TrueEdge(first, second));
+		cfg.addNode(first);
+		cfg.addEdge(new TrueEdge(condition, first));
 		
-		second = new LessThan(cfg, cppLoc(78, 15),
+		Statement second = new LessThan(cfg, cppLoc(78, 15),
 				new VariableRef(cfg, cppLoc(78, 9), "angle", Int32.INSTANCE),
 				new Int32Literal(cfg, cppLoc(78, 17), 0));
 		cfg.addNode(second);
-		cfg.addEdge(new FalseEdge(first, second));
-		first = second;
+		cfg.addEdge(new FalseEdge(condition, second));
+		cfg.addEdge(new SequentialEdge(first, second));
+		condition = second;
 		
-		second = new Assignment(cfg, cppLoc(79, 15), 
+		first = new Assignment(cfg, cppLoc(79, 15), 
 				new VariableRef(cfg, cppLoc(79, 9), "angle", Int32.INSTANCE),
 				new Int32Literal(cfg, cppLoc(79, 17), 0));
-		cfg.addNode(second);
-		cfg.addEdge(new TrueEdge(first, second));
+		cfg.addNode(first);
+		cfg.addEdge(new TrueEdge(condition, first));
 
 		second = new UnresolvedCall(cfg, cppLoc(80, 5), ResolutionStrategy.STATIC_TYPES, false, "communicate",
 				new AccessGlobal(cfg, cppLoc(80, 17), program, new Global(cppLoc(25, 9), "servoPin", Int32.INSTANCE)),
@@ -594,7 +593,8 @@ public class App {
 						new AccessGlobal(cfg, cppLoc(80, 46), program, new Global(cppLoc(21, 9), "SERVO_MIN_MS", Int32.INSTANCE)),
 						new AccessGlobal(cfg, cppLoc(80, 60), program, new Global(cppLoc(22, 9), "SERVO_MAX_MS", Int32.INSTANCE))));
 		cfg.addNode(second);
-		cfg.addEdge(new FalseEdge(first, second));
+		cfg.addEdge(new FalseEdge(condition, second));
+		cfg.addEdge(new SequentialEdge(first, second));
 		first = second;
 		
 		second = new OpenCall(cfg, cppLoc(81, 5), "delay", VoidType.INSTANCE, new Int32Literal(cfg, cppLoc(81, 11), 100));
@@ -614,35 +614,37 @@ public class App {
 				new Parameter(cppLoc(84, 23), "pin", Int32.INSTANCE),
 				new Parameter(cppLoc(84, 32), "ms", Int32.INSTANCE)));
 		
-		Statement first = new GreaterThan(cfg, cppLoc(85, 12),
+		Statement condition = new GreaterThan(cfg, cppLoc(85, 12),
 				new VariableRef(cfg, cppLoc(85, 9), "ms", Int32.INSTANCE),
 				new AccessGlobal(cfg, cppLoc(85, 14), program, new Global(cppLoc(22, 9), "SERVO_MAX_MS", Int32.INSTANCE)));
-		cfg.addNode(first, true);
+		cfg.addNode(condition, true);
 		
-		Statement second = new Assignment(cfg, cppLoc(86, 12), 
+		Statement first = new Assignment(cfg, cppLoc(86, 12), 
 				new VariableRef(cfg, cppLoc(86, 9), "ms", Int32.INSTANCE),
 				new AccessGlobal(cfg, cppLoc(86, 14), program, new Global(cppLoc(22, 9), "SERVO_MAX_MS", Int32.INSTANCE)));
-		cfg.addNode(second);
-		cfg.addEdge(new TrueEdge(first, second));
+		cfg.addNode(first);
+		cfg.addEdge(new TrueEdge(condition, first));
 		
-		second = new LessThan(cfg, cppLoc(87, 12),
+		Statement second = new LessThan(cfg, cppLoc(87, 12),
 				new VariableRef(cfg, cppLoc(87, 9), "ms", Int32.INSTANCE),
 				new AccessGlobal(cfg, cppLoc(87, 14), program, new Global(cppLoc(21, 9), "SERVO_MIN_MS", Int32.INSTANCE)));
 		cfg.addNode(second);
-		cfg.addEdge(new FalseEdge(first, second));
-		first = second;
+		cfg.addEdge(new FalseEdge(condition, second));
+		cfg.addEdge(new SequentialEdge(first, second));
+		condition = second;
 		
-		second = new Assignment(cfg, cppLoc(88, 12), 
+		first = new Assignment(cfg, cppLoc(88, 12), 
 				new VariableRef(cfg, cppLoc(88, 9), "ms", Int32.INSTANCE),
 				new AccessGlobal(cfg, cppLoc(88, 14), program, new Global(cppLoc(21, 9), "SERVO_MIN_MS", Int32.INSTANCE)));
-		cfg.addNode(second);
-		cfg.addEdge(new TrueEdge(first, second));
+		cfg.addNode(first);
+		cfg.addEdge(new TrueEdge(condition, first));
 
 		second = new UnresolvedCall(cfg, cppLoc(89, 5), ResolutionStrategy.STATIC_TYPES, false, "communicate",
 				new VariableRef(cfg, cppLoc(89, 17), "pin", Int32.INSTANCE),
 				new VariableRef(cfg, cppLoc(89, 22), "ms", Int32.INSTANCE));
 		cfg.addNode(second);
-		cfg.addEdge(new FalseEdge(first, second));
+		cfg.addEdge(new FalseEdge(condition, second));
+		cfg.addEdge(new SequentialEdge(first, second));
 		first = second;
 		
 		second = new Ret(cfg, cppLoc(90, 0));
