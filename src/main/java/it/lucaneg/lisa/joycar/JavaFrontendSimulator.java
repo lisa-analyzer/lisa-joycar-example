@@ -51,11 +51,13 @@ public class JavaFrontendSimulator {
 		constructor.addNode(new Ret(constructor, classLoc), true);
 		jc.addInstanceCFG(constructor);
 
-		buildJavaMain(jc, jcType);
+		CFG mainMethod = buildJavaMain(jc, jcType);
 		buildNativeMethods(jc, jcType);
+		
+		program.addEntryPoint(mainMethod);
 	}
 
-	private static void buildJavaMain(CompilationUnit jc, ClassType jcType) {
+	private static CFG buildJavaMain(CompilationUnit jc, ClassType jcType) {
 		Type stringType = STRING_TYPE;
 		ArrayType stringArrayType = ArrayType.lookup(stringType, 1);
 		CFG main = new CFG(new CFGDescriptor(javaLoc(31, 4), jc, false, "main", VoidType.INSTANCE,
@@ -171,6 +173,8 @@ public class JavaFrontendSimulator {
 		first = new Ret(main, javaLoc(49, 10));
 		main.addNode(first);
 		main.addEdge(new FalseEdge(condition, first));
+		
+		return main;
 	}
 
 	private static void buildNativeMethods(CompilationUnit jc, ClassType jcType) {

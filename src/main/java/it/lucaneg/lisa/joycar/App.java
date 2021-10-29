@@ -10,6 +10,13 @@ import it.lucaneg.lisa.joycar.java.types.ClassType;
 import it.unive.lisa.AnalysisException;
 import it.unive.lisa.LiSA;
 import it.unive.lisa.LiSAConfiguration;
+import it.unive.lisa.analysis.SimpleAbstractState;
+import it.unive.lisa.analysis.heap.MonolithicHeap;
+import it.unive.lisa.analysis.nonrelational.inference.InferenceSystem;
+import it.unive.lisa.checks.warnings.Warning;
+import it.unive.lisa.interprocedural.ContextBasedAnalysis;
+import it.unive.lisa.interprocedural.RecursionFreeToken;
+import it.unive.lisa.interprocedural.callgraph.RTACallGraph;
 import it.unive.lisa.program.Program;
 import it.unive.lisa.program.cfg.CodeLocation;
 import it.unive.lisa.type.VoidType;
@@ -45,10 +52,22 @@ public class App {
 		ArrayType.all().forEach(program::registerType);
 
 		String workdir = "analysis/" + UUID.randomUUID();
-		LOG.info("Running analysis in: " + workdir);
 
-		LiSAConfiguration conf = new LiSAConfiguration().setDumpCFGs(true).setWorkdir(workdir);
+		LiSAConfiguration conf = new LiSAConfiguration()
+				.setWorkdir(workdir)
+				.setJsonOutput(true)
+				.setDumpAnalysis(true)
+				.setInferTypes(true)
+				.setInterproceduralAnalysis(new ContextBasedAnalysis<>(RecursionFreeToken.getSingleton()))
+				.setCallGraph(new RTACallGraph())
+				.setAbstractState(new SimpleAbstractState<>(new MonolithicHeap(), new InferenceSystem<>(new Taint())))
+				.addSemanticCheck(new TaintChecker());
 		LiSA lisa = new LiSA(conf);
 		lisa.run(program);
+		
+		LOG.info("Analysis ran in: " + workdir);
+		LOG.info("The analysis generated the following warnings: ");
+		for (Warning warn : lisa.getWarnings())
+			LOG.info(warn);
 	}
 }

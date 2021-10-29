@@ -3,6 +3,7 @@ package it.lucaneg.lisa.joycar;
 import it.unive.lisa.program.Global;
 import it.unive.lisa.program.Program;
 import it.unive.lisa.program.SourceCodeLocation;
+import it.unive.lisa.program.annotations.Annotations;
 import it.unive.lisa.program.cfg.CFG;
 import it.unive.lisa.program.cfg.CFGDescriptor;
 import it.unive.lisa.program.cfg.Parameter;
@@ -59,7 +60,10 @@ public class CppFrontendSimulator {
 	private static void buildCommunicate(Program program) {
 		CFG cfg = new CFG(new CFGDescriptor(cppLoc(29, 6), program, false, "communicate", VoidType.INSTANCE,
 				new Parameter(cppLoc(29, 22), "pin", Int32.INSTANCE),
-				new Parameter(cppLoc(29, 31), "value", Int32.INSTANCE)));
+				// the second parameter of softPwmWrite is marked as a sink for tainted data,
+				// but at the moment you cannot specify annotations on code outside 
+				// of the analysis - annotating this parameter is equivalent
+				new Parameter(cppLoc(29, 31), "value", Int32.INSTANCE, new Annotations(TaintChecker.SINK_ANNOTATION))));
 
 		Statement first = new OpenCall(cfg, cppLoc(30, 5), "softPwmWrite", VoidType.INSTANCE,
 				new VariableRef(cfg, cppLoc(30, 18), "pin", Int32.INSTANCE),
@@ -134,6 +138,11 @@ public class CppFrontendSimulator {
 						new VariableRef(cfg, cppLoc(47, 23), "pin", Int32.INSTANCE)));
 		cfg.addNode(first, true);
 
+		// the return value of analogRead is marked as a source of tainted data,
+		// but at the moment you cannot specify annotations on code outside 
+		// of the analysis - annotating this function is equivalent
+		cfg.getDescriptor().addAnnotation(Taint.TAINTED_ANNOTATION);
+		
 		program.addCFG(cfg);
 	}
 
@@ -221,6 +230,10 @@ public class CppFrontendSimulator {
 		cfg.addNode(second);
 		cfg.addEdge(new SequentialEdge(first, second));
 
+		// the map function is marked as a sanitizer of tainted data,
+		// and thus its return type is always clean
+		cfg.getDescriptor().addAnnotation(Taint.CLEAN_ANNOTATION);
+		
 		program.addCFG(cfg);
 	}
 

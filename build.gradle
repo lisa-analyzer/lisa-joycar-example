@@ -7,7 +7,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.github.unive-ssv:lisa-core:0.1b2'
+    implementation 'com.github.unive-ssv:lisa-core:0.1b3'
 }
 
 application {
