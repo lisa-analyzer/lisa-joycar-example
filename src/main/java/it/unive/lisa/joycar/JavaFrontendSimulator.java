@@ -1,11 +1,11 @@
-package it.lucaneg.lisa.joycar;
+package it.unive.lisa.joycar;
 
 import java.util.HashMap;
 import java.util.Map;
 
-import it.lucaneg.lisa.joycar.java.statements.NewObj;
-import it.lucaneg.lisa.joycar.java.types.ArrayType;
-import it.lucaneg.lisa.joycar.java.types.ClassType;
+import it.unive.lisa.joycar.java.statements.NewObj;
+import it.unive.lisa.joycar.java.types.ArrayType;
+import it.unive.lisa.joycar.java.types.ClassType;
 import it.unive.lisa.program.CompilationUnit;
 import it.unive.lisa.program.Program;
 import it.unive.lisa.program.SourceCodeLocation;

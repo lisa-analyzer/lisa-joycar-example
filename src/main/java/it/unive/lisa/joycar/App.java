@@ -1,13 +1,10 @@
-package it.lucaneg.lisa.joycar;
+package it.unive.lisa.joycar;
 
 import java.util.UUID;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import it.lucaneg.lisa.joycar.java.types.ArrayType;
-import it.lucaneg.lisa.joycar.java.types.ClassType;
-import it.lucaneg.lisa.joycar.java.types.StringType;
 import it.unive.lisa.AnalysisException;
 import it.unive.lisa.LiSA;
 import it.unive.lisa.LiSAConfiguration;
@@ -18,6 +15,9 @@ import it.unive.lisa.checks.warnings.Warning;
 import it.unive.lisa.interprocedural.ContextBasedAnalysis;
 import it.unive.lisa.interprocedural.RecursionFreeToken;
 import it.unive.lisa.interprocedural.callgraph.RTACallGraph;
+import it.unive.lisa.joycar.java.types.ArrayType;
+import it.unive.lisa.joycar.java.types.ClassType;
+import it.unive.lisa.joycar.java.types.StringType;
 import it.unive.lisa.program.CompilationUnit;
 import it.unive.lisa.program.Program;
 import it.unive.lisa.program.cfg.CodeLocation;

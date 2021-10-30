@@ -1,4 +1,4 @@
-package it.lucaneg.lisa.joycar;
+package it.unive.lisa.joycar;
 
 import it.unive.lisa.analysis.Lattice;
 import it.unive.lisa.analysis.SemanticException;

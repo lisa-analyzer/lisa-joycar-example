@@ -11,5 +11,5 @@ dependencies {
 }
 
 application {
-    mainClass = 'it.lucaneg.lisa.joycar.App'
+    mainClass = 'it.unive.lisa.joycar.App'
 }

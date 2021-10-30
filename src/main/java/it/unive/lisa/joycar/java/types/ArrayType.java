@@ -1,4 +1,4 @@
-package it.lucaneg.lisa.joycar.java.types;
+package it.unive.lisa.joycar.java.types;
 
 import java.util.Collection;
 import java.util.Collections;
