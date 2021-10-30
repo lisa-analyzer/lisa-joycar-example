@@ -43,8 +43,11 @@ public class App {
 	
 	public static ClassType OBJECT_TYPE;
 	public static ClassType STRING_TYPE;
+	public static boolean useSanitizer;
 
 	public static void main(String[] args) throws AnalysisException {
+		useSanitizer = args.length == 1 && args[0].equals("sanitize");
+		
 		Program program = new Program();
 
 		buildObject(program);

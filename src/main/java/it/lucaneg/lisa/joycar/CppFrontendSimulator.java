@@ -296,7 +296,8 @@ public class CppFrontendSimulator {
 
 		// the map function is marked as a sanitizer of tainted data,
 		// and thus its return type is always clean
-		cfg.getDescriptor().addAnnotation(Taint.CLEAN_ANNOTATION);
+		if (App.useSanitizer)
+			cfg.getDescriptor().addAnnotation(Taint.CLEAN_ANNOTATION);
 	}
 
 	private static void buildServoInit(Program program) {
