@@ -1,9 +1,11 @@
 package it.lucaneg.lisa.joycar;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import it.lucaneg.lisa.joycar.java.statements.NewObj;
 import it.lucaneg.lisa.joycar.java.types.ArrayType;
 import it.lucaneg.lisa.joycar.java.types.ClassType;
-import it.lucaneg.lisa.joycar.java.types.StringType;
 import it.unive.lisa.program.CompilationUnit;
 import it.unive.lisa.program.Program;
 import it.unive.lisa.program.SourceCodeLocation;
@@ -18,8 +20,7 @@ import it.unive.lisa.program.cfg.statement.Ret;
 import it.unive.lisa.program.cfg.statement.Return;
 import it.unive.lisa.program.cfg.statement.Statement;
 import it.unive.lisa.program.cfg.statement.VariableRef;
-import it.unive.lisa.program.cfg.statement.call.UnresolvedCall;
-import it.unive.lisa.program.cfg.statement.call.UnresolvedCall.ResolutionStrategy;
+import it.unive.lisa.program.cfg.statement.call.CFGCall;
 import it.unive.lisa.program.cfg.statement.comparison.Equal;
 import it.unive.lisa.program.cfg.statement.comparison.GreaterOrEqual;
 import it.unive.lisa.program.cfg.statement.comparison.LessOrEqual;
@@ -33,16 +34,13 @@ import it.unive.lisa.type.common.Int32;
 public class JavaFrontendSimulator {
 
 	private static final String JAVA_SRC = "JoyCar.java";
-	
-	public static ClassType OBJECT_TYPE;
-	public static ClassType STRING_TYPE;
+
+	private static final Map<String, CFG> cfgs = new HashMap<>();
 
 	public static void simulateJavaParsing(Program program) {
-		buildObject(program);
-		buildString(program);
 		SourceCodeLocation classLoc = javaLoc(3, 0);
 		CompilationUnit jc = new CompilationUnit(classLoc, "JoyCar", false);
-		jc.addSuperUnit(OBJECT_TYPE.getUnit());
+		jc.addSuperUnit(App.OBJECT_TYPE.getUnit());
 		program.addCompilationUnit(jc);
 		ClassType jcType = ClassType.lookup("JoyCar", jc);
 
@@ -51,20 +49,18 @@ public class JavaFrontendSimulator {
 		constructor.addNode(new Ret(constructor, classLoc), true);
 		jc.addInstanceCFG(constructor);
 
+		buildNativeMethods(jc, jcType, program);
 		CFG mainMethod = buildJavaMain(jc, jcType);
-		buildNativeMethods(jc, jcType);
 		
 		program.addEntryPoint(mainMethod);
 	}
 
 	private static CFG buildJavaMain(CompilationUnit jc, ClassType jcType) {
-		Type stringType = STRING_TYPE;
+		Type stringType = App.STRING_TYPE;
 		ArrayType stringArrayType = ArrayType.lookup(stringType, 1);
 		CFG main = new CFG(new CFGDescriptor(javaLoc(31, 4), jc, false, "main", VoidType.INSTANCE,
 				new Parameter(javaLoc(31, 38), "args", stringArrayType)));
 		jc.addCFG(main);
-
-		ResolutionStrategy javaStrat = ResolutionStrategy.FIRST_DYNAMIC_THEN_STATIC;
 
 		// JoyCar rc = new JoyCar();
 		Statement first = new Assignment(main, javaLoc(33, 19),
@@ -74,7 +70,7 @@ public class JavaFrontendSimulator {
 
 		// if (rc.initializeWiringPi() == 0)
 		Statement second = new Equal(main, javaLoc(34, 37),
-				new UnresolvedCall(main, javaLoc(34, 15), javaStrat, true, "initializeWiringPi",
+				new CFGCall(main, javaLoc(34, 15), jc.getName() + ".initializeWiringPi", cfgs.get("initializeWiringPi"),
 						new VariableRef(main, javaLoc(34, 13), "rc", jcType)),
 				new Int32Literal(main, javaLoc(34, 40), 0));
 		main.addNode(second);
@@ -87,21 +83,21 @@ public class JavaFrontendSimulator {
 		main.addEdge(new TrueEdge(first, second));
 
 		// rc.initializePCF8591();
-		second = new UnresolvedCall(main, javaLoc(36, 11), javaStrat, true, "initializePCF8591",
+		second = new CFGCall(main, javaLoc(36, 11), jc.getName() + ".initializePCF8591", cfgs.get("initializePCF8591"),
 				new VariableRef(main, javaLoc(36, 9), "rc", jcType));
 		main.addNode(second);
 		main.addEdge(new FalseEdge(first, second));
 		first = second;
 
 		// rc.initializeServo();
-		second = new UnresolvedCall(main, javaLoc(37, 11), javaStrat, true, "initializeServo",
+		second = new CFGCall(main, javaLoc(37, 11), jc.getName() + ".initializeServo", cfgs.get("initializeServo"),
 				new VariableRef(main, javaLoc(37, 9), "rc", jcType));
 		main.addNode(second);
 		main.addEdge(new FalseEdge(first, second));
 		first = second;
 
 		// rc.initializeMotor();
-		second = new UnresolvedCall(main, javaLoc(38, 11), javaStrat, true, "initializeMotor",
+		second = new CFGCall(main, javaLoc(38, 11), jc.getName() + ".initializeMotor", cfgs.get("initializeMotor"),
 				new VariableRef(main, javaLoc(38, 9), "rc", jcType));
 		main.addNode(second);
 		main.addEdge(new SequentialEdge(first, second));
@@ -112,16 +108,16 @@ public class JavaFrontendSimulator {
 		main.addEdge(new SequentialEdge(second, condition));
 
 		// rc.runMotor(rc.readUpDown());
-		first = new UnresolvedCall(main, javaLoc(41, 15), javaStrat, true, "runMotor",
+		first = new CFGCall(main, javaLoc(41, 15), jc.getName() + ".runMotor", cfgs.get("runMotor"),
 				new VariableRef(main, javaLoc(41, 13), "rc", jcType),
-				new UnresolvedCall(main, javaLoc(41, 27), javaStrat, true, "readUpDown",
+				new CFGCall(main, javaLoc(41, 27), jc.getName() + ".readUpDown", cfgs.get("readUpDown"),
 						new VariableRef(main, javaLoc(41, 25), "rc", jcType)));
 		main.addNode(first);
 		main.addEdge(new TrueEdge(condition, first));
 
 		// if (rc.readLeftRight() >= 200)
 		second = new GreaterOrEqual(main, javaLoc(43, 36),
-				new UnresolvedCall(main, javaLoc(43, 19), javaStrat, true, "readLeftRight",
+				new CFGCall(main, javaLoc(43, 19), jc.getName() + ".readLeftRight", cfgs.get("readLeftRight"),
 						new VariableRef(main, javaLoc(43, 17), "rc", jcType)),
 				new Int32Literal(main, javaLoc(43, 39), 200));
 		main.addNode(second);
@@ -129,7 +125,7 @@ public class JavaFrontendSimulator {
 		first = second;
 
 		// rc.turnRight();
-		second = new UnresolvedCall(main, javaLoc(44, 19), javaStrat, true, "turnRight",
+		second = new CFGCall(main, javaLoc(44, 19), jc.getName() + ".turnRight", cfgs.get("turnRight"),
 				new VariableRef(main, javaLoc(44, 17), "rc", jcType));
 		main.addNode(second);
 		main.addEdge(new TrueEdge(first, second));
@@ -137,7 +133,7 @@ public class JavaFrontendSimulator {
 
 		// else if (rc.readLeftRight() <= 100)
 		second = new LessOrEqual(main, javaLoc(45, 41),
-				new UnresolvedCall(main, javaLoc(45, 24), javaStrat, true, "readLeftRight",
+				new CFGCall(main, javaLoc(45, 24), jc.getName() + ".readLeftRight", cfgs.get("readLeftRight"),
 						new VariableRef(main, javaLoc(45, 22), "rc", jcType)),
 				new Int32Literal(main, javaLoc(45, 44), 100));
 		main.addNode(second);
@@ -146,14 +142,14 @@ public class JavaFrontendSimulator {
 		first = second;
 
 		// rc.turnLeft();
-		second = new UnresolvedCall(main, javaLoc(46, 19), javaStrat, true, "turnLeft",
+		second = new CFGCall(main, javaLoc(46, 19), jc.getName() + ".turnLeft", cfgs.get("turnLeft"),
 				new VariableRef(main, javaLoc(46, 17), "rc", jcType));
 		main.addNode(second);
 		main.addEdge(new TrueEdge(first, second));
 		inner = second;
 
 		// else if (rc.isButtonPressed())
-		second = new UnresolvedCall(main, javaLoc(47, 24), javaStrat, true, "isButtonPressed",
+		second = new CFGCall(main, javaLoc(47, 24), jc.getName() + ".isButtonPressed", cfgs.get("isButtonPressed"),
 				new VariableRef(main, javaLoc(47, 22), "rc", jcType));
 		main.addNode(second);
 		main.addEdge(new FalseEdge(first, second));
@@ -161,7 +157,7 @@ public class JavaFrontendSimulator {
 		first = second;
 
 		// rc.turnAtAngle(0);
-		second = new UnresolvedCall(main, javaLoc(48, 19), javaStrat, true, "turnAtAngle",
+		second = new CFGCall(main, javaLoc(48, 19), jc.getName() + ".turnAtAngle", cfgs.get("turnAtAngle"),
 				new VariableRef(main, javaLoc(48, 17), "rc", jcType),
 				new Int32Literal(main, javaLoc(48, 32), 0));
 		main.addNode(second);
@@ -177,13 +173,12 @@ public class JavaFrontendSimulator {
 		return main;
 	}
 
-	private static void buildNativeMethods(CompilationUnit jc, ClassType jcType) {
+	private static void buildNativeMethods(CompilationUnit jc, ClassType jcType, Program program) {
 		SourceCodeLocation natLoc = javaLoc(4, 23);
 		CFG nat = new CFG(new CFGDescriptor(natLoc, jc, true, "initializeWiringPi", Int32.INSTANCE,
 				new Parameter(natLoc, "this", jcType)));
 		Statement body = new Return(nat, natLoc,
-				new UnresolvedCall(nat, natLoc, ResolutionStrategy.STATIC_TYPES, false,
-						"Java_JoyCar_initializeWiringPi",
+				new CFGCall(nat, natLoc, program.getName() + ".Java_JoyCar_initializeWiringPi", CppFrontendSimulator.cfgs.get("Java_JoyCar_initializeWiringPi"),
 						new VariableRef(nat, natLoc, "this", jcType)));
 		nat.addNode(body, true);
 		jc.addInstanceCFG(nat);
@@ -191,7 +186,7 @@ public class JavaFrontendSimulator {
 		natLoc = javaLoc(6, 24);
 		nat = new CFG(new CFGDescriptor(natLoc, jc, true, "initializePCF8591", VoidType.INSTANCE,
 				new Parameter(natLoc, "this", jcType)));
-		body = new UnresolvedCall(nat, natLoc, ResolutionStrategy.STATIC_TYPES, false, "Java_JoyCar_initializePCF8591",
+		body = new CFGCall(nat, natLoc, program.getName() + ".Java_JoyCar_initializePCF8591", CppFrontendSimulator.cfgs.get("Java_JoyCar_initializePCF8591"),
 				new VariableRef(nat, natLoc, "this", jcType));
 		nat.addNode(body, true);
 		Statement ret = new Ret(nat, natLoc);
@@ -203,7 +198,7 @@ public class JavaFrontendSimulator {
 		nat = new CFG(new CFGDescriptor(natLoc, jc, true, "readUpDown", Int32.INSTANCE,
 				new Parameter(natLoc, "this", jcType)));
 		body = new Return(nat, natLoc,
-				new UnresolvedCall(nat, natLoc, ResolutionStrategy.STATIC_TYPES, false, "Java_JoyCar_readUpDown",
+				new CFGCall(nat, natLoc, program.getName() + ".Java_JoyCar_readUpDown", CppFrontendSimulator.cfgs.get("Java_JoyCar_readUpDown"),
 						new VariableRef(nat, natLoc, "this", jcType)));
 		nat.addNode(body, true);
 		jc.addInstanceCFG(nat);
@@ -212,7 +207,7 @@ public class JavaFrontendSimulator {
 		nat = new CFG(new CFGDescriptor(natLoc, jc, true, "readLeftRight", Int32.INSTANCE,
 				new Parameter(natLoc, "this", jcType)));
 		body = new Return(nat, natLoc,
-				new UnresolvedCall(nat, natLoc, ResolutionStrategy.STATIC_TYPES, false, "Java_JoyCar_readLeftRight",
+				new CFGCall(nat, natLoc, program.getName() + ".Java_JoyCar_readLeftRight", CppFrontendSimulator.cfgs.get("Java_JoyCar_readLeftRight"),
 						new VariableRef(nat, natLoc, "this", jcType)));
 		nat.addNode(body, true);
 		jc.addInstanceCFG(nat);
@@ -221,7 +216,7 @@ public class JavaFrontendSimulator {
 		nat = new CFG(new CFGDescriptor(natLoc, jc, true, "isButtonPressed", BoolType.INSTANCE,
 				new Parameter(natLoc, "this", jcType)));
 		body = new Return(nat, natLoc,
-				new UnresolvedCall(nat, natLoc, ResolutionStrategy.STATIC_TYPES, false, "Java_JoyCar_isButtonPressed",
+				new CFGCall(nat, natLoc, program.getName() + ".Java_JoyCar_isButtonPressed", CppFrontendSimulator.cfgs.get("Java_JoyCar_isButtonPressed"),
 						new VariableRef(nat, natLoc, "this", jcType)));
 		nat.addNode(body, true);
 		jc.addInstanceCFG(nat);
@@ -229,7 +224,7 @@ public class JavaFrontendSimulator {
 		natLoc = javaLoc(14, 24);
 		nat = new CFG(new CFGDescriptor(natLoc, jc, true, "initializeServo", VoidType.INSTANCE,
 				new Parameter(natLoc, "this", jcType)));
-		body = new UnresolvedCall(nat, natLoc, ResolutionStrategy.STATIC_TYPES, false, "Java_JoyCar_initializeServo",
+		body = new CFGCall(nat, natLoc, program.getName() + ".Java_JoyCar_initializeServo", CppFrontendSimulator.cfgs.get("Java_JoyCar_initializeServo"),
 				new VariableRef(nat, natLoc, "this", jcType));
 		nat.addNode(body, true);
 		ret = new Ret(nat, natLoc);
@@ -240,7 +235,7 @@ public class JavaFrontendSimulator {
 		natLoc = javaLoc(16, 24);
 		nat = new CFG(new CFGDescriptor(natLoc, jc, true, "turnRight", VoidType.INSTANCE,
 				new Parameter(natLoc, "this", jcType)));
-		body = new UnresolvedCall(nat, natLoc, ResolutionStrategy.STATIC_TYPES, false, "Java_JoyCar_turnRight",
+		body = new CFGCall(nat, natLoc, program.getName() + ".Java_JoyCar_turnRight", CppFrontendSimulator.cfgs.get("Java_JoyCar_turnRight"),
 				new VariableRef(nat, natLoc, "this", jcType));
 		nat.addNode(body, true);
 		ret = new Ret(nat, natLoc);
@@ -251,7 +246,7 @@ public class JavaFrontendSimulator {
 		natLoc = javaLoc(18, 24);
 		nat = new CFG(new CFGDescriptor(natLoc, jc, true, "turnLeft", VoidType.INSTANCE,
 				new Parameter(natLoc, "this", jcType)));
-		body = new UnresolvedCall(nat, natLoc, ResolutionStrategy.STATIC_TYPES, false, "Java_JoyCar_turnLeft",
+		body = new CFGCall(nat, natLoc, program.getName() + ".Java_JoyCar_turnLeft", CppFrontendSimulator.cfgs.get("Java_JoyCar_turnLeft"),
 				new VariableRef(nat, natLoc, "this", jcType));
 		nat.addNode(body, true);
 		ret = new Ret(nat, natLoc);
@@ -262,7 +257,7 @@ public class JavaFrontendSimulator {
 		natLoc = javaLoc(20, 24);
 		nat = new CFG(new CFGDescriptor(natLoc, jc, true, "turnAtAngle", VoidType.INSTANCE,
 				new Parameter(natLoc, "this", jcType), new Parameter(natLoc, "angle", Int32.INSTANCE)));
-		body = new UnresolvedCall(nat, natLoc, ResolutionStrategy.STATIC_TYPES, false, "Java_JoyCar_turnAtAngle",
+		body = new CFGCall(nat, natLoc, program.getName() + ".Java_JoyCar_turnAtAngle", CppFrontendSimulator.cfgs.get("Java_JoyCar_turnAtAngle"),
 				new VariableRef(nat, natLoc, "this", jcType), new VariableRef(nat, natLoc, "angle", Int32.INSTANCE));
 		nat.addNode(body, true);
 		ret = new Ret(nat, natLoc);
@@ -273,7 +268,7 @@ public class JavaFrontendSimulator {
 		natLoc = javaLoc(22, 24);
 		nat = new CFG(new CFGDescriptor(natLoc, jc, true, "initializeMotor", VoidType.INSTANCE,
 				new Parameter(natLoc, "this", jcType)));
-		body = new UnresolvedCall(nat, natLoc, ResolutionStrategy.STATIC_TYPES, false, "Java_JoyCar_initializeMotor",
+		body = new CFGCall(nat, natLoc, program.getName() + ".Java_JoyCar_initializeMotor", CppFrontendSimulator.cfgs.get("Java_JoyCar_initializeMotor"),
 				new VariableRef(nat, natLoc, "this", jcType));
 		nat.addNode(body, true);
 		ret = new Ret(nat, natLoc);
@@ -284,27 +279,16 @@ public class JavaFrontendSimulator {
 		natLoc = javaLoc(24, 24);
 		nat = new CFG(new CFGDescriptor(natLoc, jc, true, "runMotor", VoidType.INSTANCE,
 				new Parameter(natLoc, "this", jcType), new Parameter(natLoc, "value", Int32.INSTANCE)));
-		body = new UnresolvedCall(nat, natLoc, ResolutionStrategy.STATIC_TYPES, false, "Java_JoyCar_runMotor",
+		body = new CFGCall(nat, natLoc, program.getName() + ".Java_JoyCar_runMotor", CppFrontendSimulator.cfgs.get("Java_JoyCar_runMotor"),
 				new VariableRef(nat, natLoc, "this", jcType), new VariableRef(nat, natLoc, "value", Int32.INSTANCE));
 		nat.addNode(body, true);
 		ret = new Ret(nat, natLoc);
 		nat.addNode(ret);
 		nat.addEdge(new SequentialEdge(body, ret));
 		jc.addInstanceCFG(nat);
-	}
-
-	private static void buildObject(Program program) {
-		CompilationUnit object = new CompilationUnit(App.LIB_LOCATION, ClassType.JAVA_LANG_OBJECT, false);
-		program.addCompilationUnit(object);
-		OBJECT_TYPE = ClassType.lookup(ClassType.JAVA_LANG_OBJECT, object);
-	}
-
-	private static void buildString(Program program) {
-		CompilationUnit string = new CompilationUnit(App.LIB_LOCATION, ClassType.JAVA_LANG_STRING, false);
-		string.addSuperUnit(OBJECT_TYPE.getUnit());
-		program.addCompilationUnit(string);
-		// this will automatically register it inside the types cache
-		STRING_TYPE = new StringType(string);
+		
+		for (CFG cfg : jc.getInstanceCFGs(false))
+			cfgs.put(cfg.getDescriptor().getName(), cfg);
 	}
 
 	private static SourceCodeLocation javaLoc(int line, int col) {

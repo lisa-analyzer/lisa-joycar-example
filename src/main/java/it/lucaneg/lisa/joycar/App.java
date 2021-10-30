@@ -7,6 +7,7 @@ import org.apache.logging.log4j.Logger;
 
 import it.lucaneg.lisa.joycar.java.types.ArrayType;
 import it.lucaneg.lisa.joycar.java.types.ClassType;
+import it.lucaneg.lisa.joycar.java.types.StringType;
 import it.unive.lisa.AnalysisException;
 import it.unive.lisa.LiSA;
 import it.unive.lisa.LiSAConfiguration;
@@ -17,6 +18,7 @@ import it.unive.lisa.checks.warnings.Warning;
 import it.unive.lisa.interprocedural.ContextBasedAnalysis;
 import it.unive.lisa.interprocedural.RecursionFreeToken;
 import it.unive.lisa.interprocedural.callgraph.RTACallGraph;
+import it.unive.lisa.program.CompilationUnit;
 import it.unive.lisa.program.Program;
 import it.unive.lisa.program.cfg.CodeLocation;
 import it.unive.lisa.type.VoidType;
@@ -38,12 +40,18 @@ public class App {
 			return "library code";
 		}
 	};
+	
+	public static ClassType OBJECT_TYPE;
+	public static ClassType STRING_TYPE;
 
 	public static void main(String[] args) throws AnalysisException {
 		Program program = new Program();
 
-		JavaFrontendSimulator.simulateJavaParsing(program);
+		buildObject(program);
+		buildString(program);
+		
 		CppFrontendSimulator.simulateCppParsing(program);
+		JavaFrontendSimulator.simulateJavaParsing(program);
 
 		program.registerType(Int32.INSTANCE);
 		program.registerType(BoolType.INSTANCE);
@@ -69,5 +77,19 @@ public class App {
 		LOG.info("The analysis generated the following warnings: ");
 		for (Warning warn : lisa.getWarnings())
 			LOG.info(warn);
+	}
+
+	private static void buildObject(Program program) {
+		CompilationUnit object = new CompilationUnit(App.LIB_LOCATION, ClassType.JAVA_LANG_OBJECT, false);
+		program.addCompilationUnit(object);
+		OBJECT_TYPE = ClassType.lookup(ClassType.JAVA_LANG_OBJECT, object);
+	}
+
+	private static void buildString(Program program) {
+		CompilationUnit string = new CompilationUnit(App.LIB_LOCATION, ClassType.JAVA_LANG_STRING, false);
+		string.addSuperUnit(OBJECT_TYPE.getUnit());
+		program.addCompilationUnit(string);
+		// this will automatically register it inside the types cache
+		STRING_TYPE = new StringType(string);
 	}
 }

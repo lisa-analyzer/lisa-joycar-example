@@ -1,5 +1,8 @@
 package it.lucaneg.lisa.joycar;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import it.unive.lisa.program.Global;
 import it.unive.lisa.program.Program;
 import it.unive.lisa.program.SourceCodeLocation;
@@ -15,9 +18,8 @@ import it.unive.lisa.program.cfg.statement.Ret;
 import it.unive.lisa.program.cfg.statement.Return;
 import it.unive.lisa.program.cfg.statement.Statement;
 import it.unive.lisa.program.cfg.statement.VariableRef;
+import it.unive.lisa.program.cfg.statement.call.CFGCall;
 import it.unive.lisa.program.cfg.statement.call.OpenCall;
-import it.unive.lisa.program.cfg.statement.call.UnresolvedCall;
-import it.unive.lisa.program.cfg.statement.call.UnresolvedCall.ResolutionStrategy;
 import it.unive.lisa.program.cfg.statement.comparison.Equal;
 import it.unive.lisa.program.cfg.statement.comparison.GreaterThan;
 import it.unive.lisa.program.cfg.statement.comparison.LessThan;
@@ -36,7 +38,11 @@ public class CppFrontendSimulator {
 
 	private static final String CPP_SRC = "JoyCar.cpp";
 
+	public static final Map<String, CFG> cfgs = new HashMap<>();
+
 	public static void simulateCppParsing(Program program) {
+		buildSignatures(program);
+		
 		buildCommunicate(program);
 		buildJava_JoyCar_initializeWiringPi(program);
 		buildJava_JoyCar_initializePCF8591(program);
@@ -57,14 +63,103 @@ public class CppFrontendSimulator {
 		buildJava_JoyCar_runMotor(program);
 	}
 
-	private static void buildCommunicate(Program program) {
+	private static void buildSignatures(Program program) {
 		CFG cfg = new CFG(new CFGDescriptor(cppLoc(29, 6), program, false, "communicate", VoidType.INSTANCE,
 				new Parameter(cppLoc(29, 22), "pin", Int32.INSTANCE),
-				// the second parameter of softPwmWrite is marked as a sink for tainted data,
-				// but at the moment you cannot specify annotations on code outside 
+				// the second parameter of softPwmWrite is marked as a sink for
+				// tainted data,
+				// but at the moment you cannot specify annotations on code
+				// outside
 				// of the analysis - annotating this parameter is equivalent
 				new Parameter(cppLoc(29, 31), "value", Int32.INSTANCE, new Annotations(TaintChecker.SINK_ANNOTATION))));
+		program.addCFG(cfg);
 
+		cfg = new CFG(new CFGDescriptor(cppLoc(134, 24), program, false, "Java_JoyCar_runMotor", VoidType.INSTANCE,
+				new Parameter(cppLoc(134, 66), "o", App.OBJECT_TYPE),
+				new Parameter(cppLoc(134, 74), "val", Int32.INSTANCE)));
+		program.addCFG(cfg);
+
+		cfg = new CFG(new CFGDescriptor(cppLoc(127, 24), program, false, "Java_JoyCar_initializeMotor",
+				VoidType.INSTANCE, new Parameter(cppLoc(127, 73), "o", App.OBJECT_TYPE)));
+		program.addCFG(cfg);
+
+		cfg = new CFG(new CFGDescriptor(cppLoc(112, 6), program, false, "motor", VoidType.INSTANCE,
+				new Parameter(cppLoc(112, 16), "ADC", Int32.INSTANCE)));
+		program.addCFG(cfg);
+
+		cfg = new CFG(new CFGDescriptor(cppLoc(104, 24), program, false, "Java_JoyCar_turnLeft", VoidType.INSTANCE,
+				new Parameter(cppLoc(104, 66), "o", App.OBJECT_TYPE)));
+		program.addCFG(cfg);
+		
+		cfg = new CFG(new CFGDescriptor(cppLoc(96, 24), program, false, "Java_JoyCar_turnRight", VoidType.INSTANCE,
+				new Parameter(cppLoc(92, 67), "o", App.OBJECT_TYPE)));
+		program.addCFG(cfg);
+
+		cfg = new CFG(
+				new CFGDescriptor(cppLoc(33, 24), program, false, "Java_JoyCar_initializeWiringPi", Int32.INSTANCE,
+						new Parameter(cppLoc(33, 76), "o", App.OBJECT_TYPE)));
+		program.addCFG(cfg);
+
+		cfg = new CFG(
+				new CFGDescriptor(cppLoc(40, 24), program, false, "Java_JoyCar_initializePCF8591", VoidType.INSTANCE,
+						new Parameter(cppLoc(40, 75), "o", App.OBJECT_TYPE)));
+		program.addCFG(cfg);
+
+		cfg = new CFG(new CFGDescriptor(cppLoc(46, 5), program, false, "readAnalog", Int32.INSTANCE,
+				new Parameter(cppLoc(46, 20), "pin", Int32.INSTANCE)));
+		program.addCFG(cfg);
+
+		cfg = new CFG(new CFGDescriptor(cppLoc(50, 5), program, false, "readDigital", Int32.INSTANCE,
+				new Parameter(cppLoc(50, 21), "pin", Int32.INSTANCE)));
+		program.addCFG(cfg);
+
+		cfg = new CFG(new CFGDescriptor(cppLoc(54, 24), program, false, "Java_JoyCar_readUpDown", Int32.INSTANCE,
+				new Parameter(cppLoc(54, 68), "o", App.OBJECT_TYPE)));
+		program.addCFG(cfg);
+
+		cfg = new CFG(new CFGDescriptor(cppLoc(58, 24), program, false, "Java_JoyCar_readLeftRight", Int32.INSTANCE,
+				new Parameter(cppLoc(58, 71), "o", App.OBJECT_TYPE)));
+		program.addCFG(cfg);
+
+		cfg = new CFG(
+				new CFGDescriptor(cppLoc(62, 28), program, false, "Java_JoyCar_isButtonPressed", BoolType.INSTANCE,
+						new Parameter(cppLoc(62, 77), "o", App.OBJECT_TYPE)));
+		program.addCFG(cfg);
+
+		cfg = new CFG(new CFGDescriptor(cppLoc(66, 6), program, false, "map", Int64.INSTANCE,
+				new Parameter(cppLoc(66, 15), "value", Int64.INSTANCE),
+				new Parameter(cppLoc(66, 27), "fromLow", Int64.INSTANCE),
+				new Parameter(cppLoc(66, 41), "fromHigh", Int64.INSTANCE),
+				new Parameter(cppLoc(66, 56), "toLow", Int64.INSTANCE),
+				new Parameter(cppLoc(66, 68), "toHigh", Int64.INSTANCE)));
+		program.addCFG(cfg);
+
+		cfg = new CFG(new CFGDescriptor(cppLoc(70, 6), program, false, "servoInit", VoidType.INSTANCE,
+				new Parameter(cppLoc(70, 20), "pin", Int32.INSTANCE)));
+		program.addCFG(cfg);
+
+		cfg = new CFG(
+				new CFGDescriptor(cppLoc(75, 24), program, false, "Java_JoyCar_turnAtAngle", VoidType.INSTANCE,
+						new Parameter(cppLoc(75, 70), "o", App.OBJECT_TYPE),
+						new Parameter(cppLoc(75, 77), "angle", Int32.INSTANCE)));
+		program.addCFG(cfg);
+
+		cfg = new CFG(new CFGDescriptor(cppLoc(84, 6), program, false, "servoWriteMS", VoidType.INSTANCE,
+				new Parameter(cppLoc(84, 23), "pin", Int32.INSTANCE),
+				new Parameter(cppLoc(84, 32), "ms", Int32.INSTANCE)));
+		program.addCFG(cfg);
+
+		cfg = new CFG(
+				new CFGDescriptor(cppLoc(92, 24), program, false, "Java_JoyCar_initializeServo", VoidType.INSTANCE,
+						new Parameter(cppLoc(92, 73), "o", App.OBJECT_TYPE)));
+		program.addCFG(cfg);
+		
+		for (CFG cg : program.getCFGs())
+			cfgs.put(cg.getDescriptor().getName(), cg);
+	}
+
+	private static void buildCommunicate(Program program) {
+		CFG cfg = cfgs.get("communicate");
 		Statement first = new OpenCall(cfg, cppLoc(30, 5), "softPwmWrite", VoidType.INSTANCE,
 				new VariableRef(cfg, cppLoc(30, 18), "pin", Int32.INSTANCE),
 				new VariableRef(cfg, cppLoc(30, 23), "value", Int32.INSTANCE));
@@ -73,14 +168,10 @@ public class CppFrontendSimulator {
 		Statement second = new Ret(cfg, cppLoc(31, 0));
 		cfg.addNode(second);
 		cfg.addEdge(new SequentialEdge(first, second));
-
-		program.addCFG(cfg);
 	}
 
 	private static void buildJava_JoyCar_initializeWiringPi(Program program) {
-		CFG cfg = new CFG(
-				new CFGDescriptor(cppLoc(33, 24), program, false, "Java_JoyCar_initializeWiringPi", Int32.INSTANCE,
-						new Parameter(cppLoc(33, 76), "o", JavaFrontendSimulator.OBJECT_TYPE)));
+		CFG cfg = cfgs.get("Java_JoyCar_initializeWiringPi");
 
 		Statement first = new Equal(cfg, cppLoc(34, 25),
 				new OpenCall(cfg, cppLoc(34, 9), "wiringPiSetup", Int32.INSTANCE),
@@ -94,14 +185,10 @@ public class CppFrontendSimulator {
 		second = new Return(cfg, cppLoc(37, 9), new Int32Literal(cfg, cppLoc(37, 16), 1));
 		cfg.addNode(second);
 		cfg.addEdge(new FalseEdge(first, second));
-
-		program.addCFG(cfg);
 	}
 
 	private static void buildJava_JoyCar_initializePCF8591(Program program) {
-		CFG cfg = new CFG(
-				new CFGDescriptor(cppLoc(40, 24), program, false, "Java_JoyCar_initializePCF8591", VoidType.INSTANCE,
-						new Parameter(cppLoc(40, 75), "o", JavaFrontendSimulator.OBJECT_TYPE)));
+		CFG cfg = cfgs.get("Java_JoyCar_initializePCF8591");
 
 		Statement first = new OpenCall(cfg, cppLoc(41, 5), "wiringPiSetup", VoidType.INSTANCE,
 				new AccessGlobal(cfg, cppLoc(41, 13), program, new Global(cppLoc(24, 9), "Z_Pin", Int32.INSTANCE)),
@@ -125,13 +212,10 @@ public class CppFrontendSimulator {
 		second = new Ret(cfg, cppLoc(44, 0));
 		cfg.addNode(second);
 		cfg.addEdge(new SequentialEdge(first, second));
-
-		program.addCFG(cfg);
 	}
 
 	private static void buildReadAnalog(Program program) {
-		CFG cfg = new CFG(new CFGDescriptor(cppLoc(46, 5), program, false, "readAnalog", Int32.INSTANCE,
-				new Parameter(cppLoc(46, 20), "pin", Int32.INSTANCE)));
+		CFG cfg = cfgs.get("readAnalog");
 
 		Statement first = new Return(cfg, cppLoc(47, 5),
 				new OpenCall(cfg, cppLoc(47, 12), "analogRead", Int32.INSTANCE,
@@ -139,55 +223,42 @@ public class CppFrontendSimulator {
 		cfg.addNode(first, true);
 
 		// the return value of analogRead is marked as a source of tainted data,
-		// but at the moment you cannot specify annotations on code outside 
+		// but at the moment you cannot specify annotations on code outside
 		// of the analysis - annotating this function is equivalent
 		cfg.getDescriptor().addAnnotation(Taint.TAINTED_ANNOTATION);
-		
-		program.addCFG(cfg);
 	}
 
 	private static void buildReadDigital(Program program) {
-		CFG cfg = new CFG(new CFGDescriptor(cppLoc(50, 5), program, false, "readDigital", Int32.INSTANCE,
-				new Parameter(cppLoc(50, 21), "pin", Int32.INSTANCE)));
+		CFG cfg = cfgs.get("readDigital");
 
 		Statement first = new Return(cfg, cppLoc(51, 5),
 				new OpenCall(cfg, cppLoc(51, 12), "digitalRead", Int32.INSTANCE,
 						new VariableRef(cfg, cppLoc(51, 24), "pin", Int32.INSTANCE)));
 		cfg.addNode(first, true);
-
-		program.addCFG(cfg);
 	}
 
 	private static void buildJava_JoyCar_readUpDown(Program program) {
-		CFG cfg = new CFG(new CFGDescriptor(cppLoc(54, 24), program, false, "Java_JoyCar_readUpDown", Int32.INSTANCE,
-				new Parameter(cppLoc(54, 68), "o", JavaFrontendSimulator.OBJECT_TYPE)));
+		CFG cfg = cfgs.get("Java_JoyCar_readUpDown");
 
 		Statement first = new Return(cfg, cppLoc(55, 5),
 				new OpenCall(cfg, cppLoc(55, 12), "readAnalog", Int32.INSTANCE,
 						new AccessGlobal(cfg, cppLoc(55, 23), program,
 								new Global(cppLoc(13, 9), "A1", Int32.INSTANCE))));
 		cfg.addNode(first, true);
-
-		program.addCFG(cfg);
 	}
 
 	private static void buildJava_JoyCar_readLeftRight(Program program) {
-		CFG cfg = new CFG(new CFGDescriptor(cppLoc(58, 24), program, false, "Java_JoyCar_readLeftRight", Int32.INSTANCE,
-				new Parameter(cppLoc(58, 71), "o", JavaFrontendSimulator.OBJECT_TYPE)));
+		CFG cfg = cfgs.get("Java_JoyCar_readLeftRight");
 
 		Statement first = new Return(cfg, cppLoc(59, 5),
 				new OpenCall(cfg, cppLoc(59, 12), "readAnalog", Int32.INSTANCE,
 						new AccessGlobal(cfg, cppLoc(59, 23), program,
 								new Global(cppLoc(12, 9), "A0", Int32.INSTANCE))));
 		cfg.addNode(first, true);
-
-		program.addCFG(cfg);
 	}
 
 	private static void buildJava_JoyCar_isButtonPressed(Program program) {
-		CFG cfg = new CFG(
-				new CFGDescriptor(cppLoc(62, 28), program, false, "Java_JoyCar_isButtonPressed", BoolType.INSTANCE,
-						new Parameter(cppLoc(62, 77), "o", JavaFrontendSimulator.OBJECT_TYPE)));
+		CFG cfg = cfgs.get("Java_JoyCar_isButtonPressed");
 
 		Statement first = new Return(cfg, cppLoc(63, 5),
 				new Equal(cfg, cppLoc(63, 31),
@@ -196,17 +267,10 @@ public class CppFrontendSimulator {
 										new Global(cppLoc(24, 9), "Z_Pin", Int32.INSTANCE))),
 						new Int32Literal(cfg, cppLoc(63, 34), 0)));
 		cfg.addNode(first, true);
-
-		program.addCFG(cfg);
 	}
 
 	private static void buildMap(Program program) {
-		CFG cfg = new CFG(new CFGDescriptor(cppLoc(66, 6), program, false, "map", Int64.INSTANCE,
-				new Parameter(cppLoc(66, 15), "value", Int64.INSTANCE),
-				new Parameter(cppLoc(66, 27), "fromLow", Int64.INSTANCE),
-				new Parameter(cppLoc(66, 41), "fromHigh", Int64.INSTANCE),
-				new Parameter(cppLoc(66, 56), "toLow", Int64.INSTANCE),
-				new Parameter(cppLoc(66, 68), "toHigh", Int64.INSTANCE)));
+		CFG cfg = cfgs.get("map");
 
 		Statement first = new Assignment(cfg, cppLoc(67, 16),
 				new VariableRef(cfg, cppLoc(67, 9), "result", Int32.INSTANCE),
@@ -233,13 +297,10 @@ public class CppFrontendSimulator {
 		// the map function is marked as a sanitizer of tainted data,
 		// and thus its return type is always clean
 		cfg.getDescriptor().addAnnotation(Taint.CLEAN_ANNOTATION);
-		
-		program.addCFG(cfg);
 	}
 
 	private static void buildServoInit(Program program) {
-		CFG cfg = new CFG(new CFGDescriptor(cppLoc(70, 6), program, false, "servoInit", VoidType.INSTANCE,
-				new Parameter(cppLoc(70, 20), "pin", Int32.INSTANCE)));
+		CFG cfg = cfgs.get("servoInit");
 
 		Statement first = new OpenCall(cfg, cppLoc(71, 5), "softPwmCreate", VoidType.INSTANCE,
 				new VariableRef(cfg, cppLoc(71, 18), "pin", Int32.INSTANCE),
@@ -250,15 +311,10 @@ public class CppFrontendSimulator {
 		Statement second = new Ret(cfg, cppLoc(72, 0));
 		cfg.addNode(second);
 		cfg.addEdge(new SequentialEdge(first, second));
-
-		program.addCFG(cfg);
 	}
 
 	private static void buildJava_JoyCar_turnAtAngle(Program program) {
-		CFG cfg = new CFG(
-				new CFGDescriptor(cppLoc(75, 24), program, false, "Java_JoyCar_turnAtAngle", VoidType.INSTANCE,
-						new Parameter(cppLoc(75, 70), "o", JavaFrontendSimulator.OBJECT_TYPE),
-						new Parameter(cppLoc(75, 77), "angle", Int32.INSTANCE)));
+		CFG cfg = cfgs.get("Java_JoyCar_turnAtAngle");
 
 		Statement condition = new GreaterThan(cfg, cppLoc(76, 15),
 				new VariableRef(cfg, cppLoc(76, 9), "angle", Int32.INSTANCE),
@@ -285,9 +341,9 @@ public class CppFrontendSimulator {
 		cfg.addNode(first);
 		cfg.addEdge(new TrueEdge(condition, first));
 
-		second = new UnresolvedCall(cfg, cppLoc(80, 5), ResolutionStrategy.STATIC_TYPES, false, "communicate",
+		second = new CFGCall(cfg, cppLoc(80, 5), program.getName() + ".communicate", cfgs.get("communicate"),
 				new AccessGlobal(cfg, cppLoc(80, 17), program, new Global(cppLoc(25, 9), "servoPin", Int32.INSTANCE)),
-				new UnresolvedCall(cfg, cppLoc(80, 27), ResolutionStrategy.STATIC_TYPES, false, "map",
+				new CFGCall(cfg, cppLoc(80, 27), program.getName() + ".map", cfgs.get("map"),
 						new VariableRef(cfg, cppLoc(80, 31), "angle", Int32.INSTANCE),
 						new Int32Literal(cfg, cppLoc(80, 38), 0),
 						new Int32Literal(cfg, cppLoc(80, 41), 180),
@@ -309,14 +365,10 @@ public class CppFrontendSimulator {
 		second = new Ret(cfg, cppLoc(82, 0));
 		cfg.addNode(second);
 		cfg.addEdge(new SequentialEdge(first, second));
-
-		program.addCFG(cfg);
 	}
 
 	private static void buildServoWriteMS(Program program) {
-		CFG cfg = new CFG(new CFGDescriptor(cppLoc(84, 6), program, false, "servoWriteMS", VoidType.INSTANCE,
-				new Parameter(cppLoc(84, 23), "pin", Int32.INSTANCE),
-				new Parameter(cppLoc(84, 32), "ms", Int32.INSTANCE)));
+		CFG cfg = cfgs.get("servoWriteMS");
 
 		Statement condition = new GreaterThan(cfg, cppLoc(85, 12),
 				new VariableRef(cfg, cppLoc(85, 9), "ms", Int32.INSTANCE),
@@ -347,7 +399,7 @@ public class CppFrontendSimulator {
 		cfg.addNode(first);
 		cfg.addEdge(new TrueEdge(condition, first));
 
-		second = new UnresolvedCall(cfg, cppLoc(89, 5), ResolutionStrategy.STATIC_TYPES, false, "communicate",
+		second = new CFGCall(cfg, cppLoc(89, 5), program.getName() + ".communicate", cfgs.get("communicate"),
 				new VariableRef(cfg, cppLoc(89, 17), "pin", Int32.INSTANCE),
 				new VariableRef(cfg, cppLoc(89, 22), "ms", Int32.INSTANCE));
 		cfg.addNode(second);
@@ -358,29 +410,22 @@ public class CppFrontendSimulator {
 		second = new Ret(cfg, cppLoc(90, 0));
 		cfg.addNode(second);
 		cfg.addEdge(new SequentialEdge(first, second));
-
-		program.addCFG(cfg);
 	}
 
 	private static void buildJava_JoyCar_initializeServo(Program program) {
-		CFG cfg = new CFG(
-				new CFGDescriptor(cppLoc(92, 24), program, false, "Java_JoyCar_initializeServo", VoidType.INSTANCE,
-						new Parameter(cppLoc(92, 73), "o", JavaFrontendSimulator.OBJECT_TYPE)));
+		CFG cfg = cfgs.get("Java_JoyCar_initializeServo");
 
-		Statement first = new UnresolvedCall(cfg, cppLoc(93, 5), ResolutionStrategy.STATIC_TYPES, false, "servoInit",
+		Statement first = new CFGCall(cfg, cppLoc(93, 5), program.getName() + ".servoInit", cfgs.get("servoInit"),
 				new AccessGlobal(cfg, cppLoc(93, 15), program, new Global(cppLoc(25, 9), "servoPin", Int32.INSTANCE)));
 		cfg.addNode(first, true);
 
 		Statement second = new Ret(cfg, cppLoc(72, 0));
 		cfg.addNode(second);
 		cfg.addEdge(new SequentialEdge(first, second));
-
-		program.addCFG(cfg);
 	}
 
 	private static void buildJava_JoyCar_turnRight(Program program) {
-		CFG cfg = new CFG(new CFGDescriptor(cppLoc(96, 24), program, false, "Java_JoyCar_turnRight", VoidType.INSTANCE,
-				new Parameter(cppLoc(92, 67), "o", JavaFrontendSimulator.OBJECT_TYPE)));
+		CFG cfg = cfgs.get("Java_JoyCar_turnRight");
 
 		Statement first = new Assignment(cfg, cppLoc(98, 12),
 				new VariableRef(cfg, cppLoc(98, 10), "i", Int32.INSTANCE),
@@ -395,8 +440,7 @@ public class CppFrontendSimulator {
 		cfg.addNode(condition);
 		cfg.addEdge(new SequentialEdge(first, condition));
 
-		Statement second = new UnresolvedCall(cfg, cppLoc(97, 9), ResolutionStrategy.STATIC_TYPES, false,
-				"servoWriteMS",
+		Statement second = new CFGCall(cfg, cppLoc(97, 9), program.getName() + ".servoWriteMS", cfgs.get("servoWriteMS"),
 				new AccessGlobal(cfg, cppLoc(99, 22), program, new Global(cppLoc(25, 9), "servoPin", Int32.INSTANCE)),
 				new VariableRef(cfg, cppLoc(99, 32), "i", Int32.INSTANCE));
 		cfg.addNode(second);
@@ -421,13 +465,10 @@ public class CppFrontendSimulator {
 		second = new Ret(cfg, cppLoc(102, 0));
 		cfg.addNode(second);
 		cfg.addEdge(new FalseEdge(condition, second));
-
-		program.addCFG(cfg);
 	}
 
 	private static void buildJava_JoyCar_turnLeft(Program program) {
-		CFG cfg = new CFG(new CFGDescriptor(cppLoc(104, 24), program, false, "Java_JoyCar_turnLeft", VoidType.INSTANCE,
-				new Parameter(cppLoc(104, 66), "o", JavaFrontendSimulator.OBJECT_TYPE)));
+		CFG cfg = cfgs.get("Java_JoyCar_turnLeft");
 
 		Statement first = new Assignment(cfg, cppLoc(106, 12),
 				new VariableRef(cfg, cppLoc(106, 10), "i", Int32.INSTANCE),
@@ -442,8 +483,7 @@ public class CppFrontendSimulator {
 		cfg.addNode(condition);
 		cfg.addEdge(new SequentialEdge(first, condition));
 
-		Statement second = new UnresolvedCall(cfg, cppLoc(107, 9), ResolutionStrategy.STATIC_TYPES, false,
-				"servoWriteMS",
+		Statement second = new CFGCall(cfg, cppLoc(107, 9), program.getName() + ".servoWriteMS", cfgs.get("servoWriteMS"),
 				new AccessGlobal(cfg, cppLoc(107, 22), program, new Global(cppLoc(25, 9), "servoPin", Int32.INSTANCE)),
 				new VariableRef(cfg, cppLoc(107, 32), "i", Int32.INSTANCE));
 		cfg.addNode(second);
@@ -468,13 +508,10 @@ public class CppFrontendSimulator {
 		second = new Ret(cfg, cppLoc(110, 0));
 		cfg.addNode(second);
 		cfg.addEdge(new FalseEdge(condition, second));
-
-		program.addCFG(cfg);
 	}
 
 	private static void buildMotor(Program program) {
-		CFG cfg = new CFG(new CFGDescriptor(cppLoc(112, 6), program, false, "motor", VoidType.INSTANCE,
-				new Parameter(cppLoc(112, 16), "ADC", Int32.INSTANCE)));
+		CFG cfg = cfgs.get("motor");
 		Statement tmp1, tmp2;
 
 		Statement first = new Assignment(cfg, cppLoc(113, 15),
@@ -541,9 +578,9 @@ public class CppFrontendSimulator {
 		cfg.addEdge(new SequentialEdge(first, second));
 		first = second;
 
-		second = new UnresolvedCall(cfg, cppLoc(124, 5), ResolutionStrategy.STATIC_TYPES, false, "communicate",
+		second = new CFGCall(cfg, cppLoc(124, 5), program.getName() + ".communicate", cfgs.get("communicate"),
 				new AccessGlobal(cfg, cppLoc(124, 17), program, new Global(cppLoc(18, 9), "enablePin", Int32.INSTANCE)),
-				new UnresolvedCall(cfg, cppLoc(124, 27), ResolutionStrategy.STATIC_TYPES, false, "map",
+				new CFGCall(cfg, cppLoc(124, 27), program.getName() + ".map", cfgs.get("map"),
 						new OpenCall(cfg, cppLoc(124, 32), "abs", Int32.INSTANCE,
 								new VariableRef(cfg, cppLoc(124, 36), "value", Int32.INSTANCE)),
 						new Int32Literal(cfg, cppLoc(124, 44), 0),
@@ -559,30 +596,29 @@ public class CppFrontendSimulator {
 		second = new Ret(cfg, cppLoc(125, 0));
 		cfg.addNode(second);
 		cfg.addEdge(new FalseEdge(first, second));
-
-		program.addCFG(cfg);
 	}
 
 	private static void buildJava_JoyCar_initializeMotor(Program program) {
-		CFG cfg = new CFG(
-				new CFGDescriptor(cppLoc(127, 24), program, false, "Java_JoyCar_initializeMotor", VoidType.INSTANCE,
-						new Parameter(cppLoc(127, 73), "o", JavaFrontendSimulator.OBJECT_TYPE)));
+		CFG cfg = cfgs.get("Java_JoyCar_initializeMotor");
 
 		Statement first = new OpenCall(cfg, cppLoc(128, 5), "pinMode", VoidType.INSTANCE,
 				new AccessGlobal(cfg, cppLoc(128, 13), program, new Global(cppLoc(18, 9), "enablePin", Int32.INSTANCE)),
-				new AccessGlobal(cfg, cppLoc(128, 24), program, new Global(App.LIB_LOCATION, "OUTPUT", Int32.INSTANCE)));
+				new AccessGlobal(cfg, cppLoc(128, 24), program,
+						new Global(App.LIB_LOCATION, "OUTPUT", Int32.INSTANCE)));
 		cfg.addNode(first, true);
 
 		Statement second = new OpenCall(cfg, cppLoc(129, 5), "pinMode", VoidType.INSTANCE,
 				new AccessGlobal(cfg, cppLoc(129, 13), program, new Global(cppLoc(16, 9), "motorPin1", Int32.INSTANCE)),
-				new AccessGlobal(cfg, cppLoc(129, 24), program, new Global(App.LIB_LOCATION, "OUTPUT", Int32.INSTANCE)));
+				new AccessGlobal(cfg, cppLoc(129, 24), program,
+						new Global(App.LIB_LOCATION, "OUTPUT", Int32.INSTANCE)));
 		cfg.addNode(second);
 		cfg.addEdge(new SequentialEdge(first, second));
 		first = second;
 
 		second = new OpenCall(cfg, cppLoc(130, 5), "pinMode", VoidType.INSTANCE,
 				new AccessGlobal(cfg, cppLoc(130, 13), program, new Global(cppLoc(17, 9), "motorPin2", Int32.INSTANCE)),
-				new AccessGlobal(cfg, cppLoc(130, 24), program, new Global(App.LIB_LOCATION, "OUTPUT", Int32.INSTANCE)));
+				new AccessGlobal(cfg, cppLoc(130, 24), program,
+						new Global(App.LIB_LOCATION, "OUTPUT", Int32.INSTANCE)));
 		cfg.addNode(second);
 		cfg.addEdge(new SequentialEdge(first, second));
 		first = second;
@@ -598,16 +634,12 @@ public class CppFrontendSimulator {
 		second = new Ret(cfg, cppLoc(132, 0));
 		cfg.addNode(second);
 		cfg.addEdge(new FalseEdge(first, second));
-
-		program.addCFG(cfg);
 	}
 
 	private static void buildJava_JoyCar_runMotor(Program program) {
-		CFG cfg = new CFG(new CFGDescriptor(cppLoc(134, 24), program, false, "Java_JoyCar_runMotor", VoidType.INSTANCE,
-				new Parameter(cppLoc(134, 66), "o", JavaFrontendSimulator.OBJECT_TYPE),
-				new Parameter(cppLoc(134, 74), "val", Int32.INSTANCE)));
+		CFG cfg = cfgs.get("Java_JoyCar_runMotor");
 
-		Statement first = new UnresolvedCall(cfg, cppLoc(135, 5), ResolutionStrategy.STATIC_TYPES, false, "motor",
+		Statement first = new CFGCall(cfg, cppLoc(135, 5), program.getName() + ".motor", cfgs.get("motor"),
 				new VariableRef(cfg, cppLoc(135, 11), "val", Int32.INSTANCE));
 		cfg.addNode(first, true);
 
@@ -620,8 +652,6 @@ public class CppFrontendSimulator {
 		second = new Ret(cfg, cppLoc(137, 0));
 		cfg.addNode(second);
 		cfg.addEdge(new FalseEdge(first, second));
-
-		program.addCFG(cfg);
 	}
 
 	private static SourceCodeLocation cppLoc(int line, int col) {
