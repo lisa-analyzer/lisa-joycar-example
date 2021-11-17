@@ -43,6 +43,7 @@ public class CppFrontendSimulator {
 	public static void simulateCppParsing(Program program) {
 		buildSignatures(program);
 		
+		buildDelay(program);
 		buildCommunicate(program);
 		buildJava_JoyCar_initializeWiringPi(program);
 		buildJava_JoyCar_initializePCF8591(program);
@@ -154,8 +155,18 @@ public class CppFrontendSimulator {
 						new Parameter(cppLoc(92, 73), "o", App.OBJECT_TYPE)));
 		program.addCFG(cfg);
 		
+		cfg = new CFG(new CFGDescriptor(App.LIB_LOCATION, program, false, "delay", VoidType.INSTANCE,
+				new Parameter(App.LIB_LOCATION, "amount", Int64.INSTANCE)));
+		program.addCFG(cfg);
+		
 		for (CFG cg : program.getCFGs())
 			cfgs.put(cg.getDescriptor().getName(), cg);
+	}
+
+	private static void buildDelay(Program program) {
+		CFG cfg = cfgs.get("delay");
+		Statement st = new Ret(cfg, App.LIB_LOCATION);
+		cfg.addNode(st, true);
 	}
 
 	private static void buildCommunicate(Program program) {
@@ -357,7 +368,7 @@ public class CppFrontendSimulator {
 		cfg.addEdge(new SequentialEdge(first, second));
 		first = second;
 
-		second = new OpenCall(cfg, cppLoc(81, 5), "delay", VoidType.INSTANCE,
+		second = new CFGCall(cfg, cppLoc(81, 5), program.getName() + ".delay", cfgs.get("delay"),
 				new Int32Literal(cfg, cppLoc(81, 11), 100));
 		cfg.addNode(second);
 		cfg.addEdge(new SequentialEdge(first, second));
@@ -448,7 +459,7 @@ public class CppFrontendSimulator {
 		cfg.addEdge(new SequentialEdge(condition, second));
 		first = second;
 
-		second = new OpenCall(cfg, cppLoc(100, 9), "delay", VoidType.INSTANCE,
+		second = new CFGCall(cfg, cppLoc(100, 9), program.getName() + ".delay", cfgs.get("delay"),
 				new Int32Literal(cfg, cppLoc(100, 15), 100));
 		cfg.addNode(second);
 		cfg.addEdge(new SequentialEdge(first, second));
@@ -491,7 +502,7 @@ public class CppFrontendSimulator {
 		cfg.addEdge(new SequentialEdge(condition, second));
 		first = second;
 
-		second = new OpenCall(cfg, cppLoc(108, 9), "delay", VoidType.INSTANCE,
+		second = new CFGCall(cfg, cppLoc(108, 9), program.getName() + ".delay", cfgs.get("delay"),
 				new Int32Literal(cfg, cppLoc(100, 15), 100));
 		cfg.addNode(second);
 		cfg.addEdge(new SequentialEdge(first, second));
@@ -644,7 +655,7 @@ public class CppFrontendSimulator {
 				new VariableRef(cfg, cppLoc(135, 11), "val", Int32.INSTANCE));
 		cfg.addNode(first, true);
 
-		Statement second = new OpenCall(cfg, cppLoc(136, 5), "delay", VoidType.INSTANCE,
+		Statement second = new CFGCall(cfg, cppLoc(136, 5), program.getName() + ".delay", cfgs.get("delay"),
 				new Int32Literal(cfg, cppLoc(136, 11), 100));
 		cfg.addNode(second);
 		cfg.addEdge(new SequentialEdge(first, second));
