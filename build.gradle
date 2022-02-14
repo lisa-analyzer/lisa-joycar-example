@@ -4,10 +4,18 @@ plugins {
 
 repositories {
     mavenCentral()
+        maven {
+            name = "GitHubPackages"
+            url 'https://maven.pkg.github.com/UniVE-SSV/lisa'
+            credentials {
+				username = project.findProperty("gpr.user") ?: System.getenv("USERNAME")
+            	password = project.findProperty("gpr.key") ?: System.getenv("TOKEN")
+            }
+        } 
 }
 
 dependencies {
-    implementation 'com.github.unive-ssv:lisa-core:0.1b3'
+    implementation 'com.github.unive-ssv:lisa-core:0.1b5-SNAPSHOT'
 }
 
 application {

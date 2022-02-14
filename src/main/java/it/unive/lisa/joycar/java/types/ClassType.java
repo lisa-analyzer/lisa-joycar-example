@@ -7,13 +7,12 @@ import java.util.Map;
 import java.util.Set;
 
 import it.unive.lisa.program.CompilationUnit;
-import it.unive.lisa.type.PointerType;
 import it.unive.lisa.type.Type;
 import it.unive.lisa.type.UnitType;
 import it.unive.lisa.util.collections.workset.FIFOWorkingSet;
 import it.unive.lisa.util.collections.workset.WorkingSet;
 
-public class ClassType implements PointerType, UnitType {
+public class ClassType implements UnitType {
 
 	public static final String JAVA_LANG_OBJECT = "java.lang.Object";
 	public static final String JAVA_LANG_STRING = "java.lang.String";

@@ -11,9 +11,12 @@ import it.unive.lisa.LiSAConfiguration;
 import it.unive.lisa.analysis.SimpleAbstractState;
 import it.unive.lisa.analysis.heap.MonolithicHeap;
 import it.unive.lisa.analysis.nonrelational.inference.InferenceSystem;
+import it.unive.lisa.analysis.nonrelational.value.TypeEnvironment;
+import it.unive.lisa.analysis.types.InferredTypes;
 import it.unive.lisa.checks.warnings.Warning;
 import it.unive.lisa.interprocedural.ContextBasedAnalysis;
 import it.unive.lisa.interprocedural.RecursionFreeToken;
+import it.unive.lisa.interprocedural.ReturnTopPolicy;
 import it.unive.lisa.interprocedural.callgraph.RTACallGraph;
 import it.unive.lisa.joycar.java.types.ArrayType;
 import it.unive.lisa.joycar.java.types.ClassType;
@@ -26,9 +29,9 @@ import it.unive.lisa.type.common.BoolType;
 import it.unive.lisa.type.common.Int32;
 
 public class App {
-	
+
 	private static final Logger LOG = LogManager.getLogger(App.class);
-	
+
 	public static final CodeLocation LIB_LOCATION = new CodeLocation() {
 		@Override
 		public int compareTo(CodeLocation o) {
@@ -40,19 +43,19 @@ public class App {
 			return "library code";
 		}
 	};
-	
+
 	public static ClassType OBJECT_TYPE;
 	public static ClassType STRING_TYPE;
 	public static boolean useSanitizer;
 
 	public static void main(String[] args) throws AnalysisException {
 		useSanitizer = args.length == 1 && args[0].equals("sanitize");
-		
+
 		Program program = new Program();
 
 		buildObject(program);
 		buildString(program);
-		
+
 		CppFrontendSimulator.simulateCppParsing(program);
 		JavaFrontendSimulator.simulateJavaParsing(program);
 
@@ -66,16 +69,17 @@ public class App {
 
 		LiSAConfiguration conf = new LiSAConfiguration()
 				.setWorkdir(workdir)
+				.setOpenCallPolicy(ReturnTopPolicy.INSTANCE)
 				.setJsonOutput(true)
 				.setDumpAnalysis(true)
-				.setInferTypes(true)
 				.setInterproceduralAnalysis(new ContextBasedAnalysis<>(RecursionFreeToken.getSingleton()))
 				.setCallGraph(new RTACallGraph())
-				.setAbstractState(new SimpleAbstractState<>(new MonolithicHeap(), new InferenceSystem<>(new Taint())))
+				.setAbstractState(new SimpleAbstractState<>(new MonolithicHeap(), new InferenceSystem<>(new Taint()),
+						new TypeEnvironment<>(new InferredTypes())))
 				.addSemanticCheck(new TaintChecker());
 		LiSA lisa = new LiSA(conf);
 		lisa.run(program);
-		
+
 		LOG.info("Analysis ran in: " + workdir);
 		LOG.info("The analysis generated the following warnings: ");
 		for (Warning warn : lisa.getWarnings())
