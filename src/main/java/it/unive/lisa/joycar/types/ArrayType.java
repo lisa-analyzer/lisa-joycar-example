@@ -1,4 +1,4 @@
-package it.unive.lisa.joycar.java.types;
+package it.unive.lisa.joycar.types;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -7,6 +7,7 @@ import java.util.Map;
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import it.unive.lisa.joycar.units.JavaObject;
 import it.unive.lisa.type.Type;
 
 public class ArrayType implements it.unive.lisa.type.ArrayType {
@@ -70,7 +71,7 @@ public class ArrayType implements it.unive.lisa.type.ArrayType {
 			return this;
 
 		if (!other.isArrayType())
-			return ClassType.lookup(ClassType.JAVA_LANG_OBJECT, null);
+			return ClassType.lookup(JavaObject.NAME, null);
 
 		return getInnerType().commonSupertype(other.asArrayType().getInnerType());
 	}

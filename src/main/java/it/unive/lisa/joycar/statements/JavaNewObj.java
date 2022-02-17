@@ -1,4 +1,4 @@
-package it.unive.lisa.joycar.java.statements;
+package it.unive.lisa.joycar.statements;
 
 import org.apache.commons.lang3.ArrayUtils;
 
@@ -29,9 +29,9 @@ import it.unive.lisa.symbolic.value.Identifier;
 import it.unive.lisa.type.ReferenceType;
 import it.unive.lisa.type.Type;
 
-public class NewObj extends NaryExpression {
+public class JavaNewObj extends NaryExpression {
 
-	public NewObj(CFG cfg, CodeLocation location, Type type, Expression... parameters) {
+	public JavaNewObj(CFG cfg, CodeLocation location, Type type, Expression... parameters) {
 		super(cfg, location, "new " + type, type, parameters);
 	}
 

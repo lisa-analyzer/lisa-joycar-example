@@ -1,23 +1,42 @@
 plugins {
+    id 'java'
     id 'application'
+   	id 'antlr'
+   	id 'eclipse'
 }
 
 repositories {
     mavenCentral()
-        maven {
-            name = "GitHubPackages"
-            url 'https://maven.pkg.github.com/UniVE-SSV/lisa'
-            credentials {
-				username = project.findProperty("gpr.user") ?: System.getenv("USERNAME")
-            	password = project.findProperty("gpr.key") ?: System.getenv("TOKEN")
-            }
-        } 
+    maven {
+        name = "GitHubPackages"
+        url 'https://maven.pkg.github.com/UniVE-SSV/lisa'
+        credentials {
+			username = project.findProperty("gpr.user") ?: System.getenv("USERNAME")
+        	password = project.findProperty("gpr.key") ?: System.getenv("TOKEN")
+        }
+    } 
 }
 
 dependencies {
+    antlr 'org.antlr:antlr4:4.8-1'    
     implementation 'com.github.unive-ssv:lisa-core:0.1b5-SNAPSHOT'
 }
 
 application {
     mainClass = 'it.unive.lisa.joycar.App'
 }
+
+generateGrammarSource {
+    maxHeapSize = "64m"
+    arguments += ["-visitor", "-no-listener"]
+    
+        doLast {
+    	copy {
+      		from 'build/generated-src/antlr/main/'
+      		include '*.*'
+      		into 'build/generated-src/antlr/main/it/unive/lisa/joycar/antlr'
+    	}
+   		project.delete fileTree('build/generated-src/antlr/main').include('*.*')
+  	}
+}
+

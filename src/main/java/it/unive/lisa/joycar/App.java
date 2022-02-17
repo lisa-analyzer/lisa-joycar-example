@@ -1,5 +1,6 @@
 package it.unive.lisa.joycar;
 
+import java.io.IOException;
 import java.util.UUID;
 
 import org.apache.logging.log4j.LogManager;
@@ -18,52 +19,44 @@ import it.unive.lisa.interprocedural.ContextBasedAnalysis;
 import it.unive.lisa.interprocedural.RecursionFreeToken;
 import it.unive.lisa.interprocedural.ReturnTopPolicy;
 import it.unive.lisa.interprocedural.callgraph.RTACallGraph;
-import it.unive.lisa.joycar.java.types.ArrayType;
-import it.unive.lisa.joycar.java.types.ClassType;
-import it.unive.lisa.joycar.java.types.StringType;
-import it.unive.lisa.program.CompilationUnit;
+import it.unive.lisa.joycar.types.ArrayType;
+import it.unive.lisa.joycar.types.ClassType;
+import it.unive.lisa.joycar.types.StringType;
+import it.unive.lisa.joycar.units.JNIEnv;
+import it.unive.lisa.joycar.units.JavaObject;
 import it.unive.lisa.program.Program;
-import it.unive.lisa.program.cfg.CodeLocation;
+import it.unive.lisa.program.cfg.CFG;
 import it.unive.lisa.type.VoidType;
 import it.unive.lisa.type.common.BoolType;
 import it.unive.lisa.type.common.Int32;
+import it.unive.lisa.type.common.Int64;
 
 public class App {
 
 	private static final Logger LOG = LogManager.getLogger(App.class);
 
-	public static final CodeLocation LIB_LOCATION = new CodeLocation() {
-		@Override
-		public int compareTo(CodeLocation o) {
-			return o == this ? 0 : -1;
-		}
+	private static boolean useSanitizer;
 
-		@Override
-		public String getCodeLocation() {
-			return "library code";
-		}
-	};
-
-	public static ClassType OBJECT_TYPE;
-	public static ClassType STRING_TYPE;
-	public static boolean useSanitizer;
-
-	public static void main(String[] args) throws AnalysisException {
+	public static void main(String[] args) throws AnalysisException, IOException {
 		useSanitizer = args.length == 1 && args[0].equals("sanitize");
 
-		Program program = new Program();
+		ClassType.lookup(JavaObject.NAME, JavaObject.INSTANCE);
+		ClassType.lookup(JavaObject.SHORT_NAME, JavaObject.INSTANCE);
+		new StringType(); // this will register it among the class types
+		ClassType.lookup(JNIEnv.SHORT_NAME, JNIEnv.INSTANCE);
 
-		buildObject(program);
-		buildString(program);
+		Program p1 = CppFrontend.parse("original/JoyCar.cpp");
+		Program p2 = JavaFrontend.parse("original/JoyCar.java");
+		addTaintAnnotations(p1);
 
-		CppFrontendSimulator.simulateCppParsing(program);
-		JavaFrontendSimulator.simulateJavaParsing(program);
+		Program program = merge(p1, p2);
 
-		program.registerType(Int32.INSTANCE);
-		program.registerType(BoolType.INSTANCE);
-		program.registerType(VoidType.INSTANCE);
 		ClassType.all().forEach(program::registerType);
 		ArrayType.all().forEach(program::registerType);
+		program.registerType(Int32.INSTANCE);
+		program.registerType(Int64.INSTANCE);
+		program.registerType(BoolType.INSTANCE);
+		program.registerType(VoidType.INSTANCE);
 
 		String workdir = "analysis/" + UUID.randomUUID();
 
@@ -86,17 +79,51 @@ public class App {
 			LOG.info(warn);
 	}
 
-	private static void buildObject(Program program) {
-		CompilationUnit object = new CompilationUnit(App.LIB_LOCATION, ClassType.JAVA_LANG_OBJECT, false);
-		program.addCompilationUnit(object);
-		OBJECT_TYPE = ClassType.lookup(ClassType.JAVA_LANG_OBJECT, object);
+	private static void addTaintAnnotations(Program cppProgram) {
+		// the second parameter of softPwmWrite is marked as a sink for
+		// tainted data, but at the moment you cannot specify annotations on
+		// code outside of the analysis - annotating this parameter is
+		// equivalent
+		cppProgram.getAllCFGs()
+				.stream()
+				.filter(cfg -> cfg.getDescriptor().getName().equals("communicate"))
+				.map(CFG::getDescriptor)
+				.forEach(descriptor -> descriptor.getFormals()[1].addAnnotation(TaintChecker.SINK_ANNOTATION));
+
+		// the return value of analogRead is marked as a source of tainted data,
+		// but at the moment you cannot specify annotations on code outside
+		// of the analysis - annotating this function is equivalent
+		cppProgram.getAllCFGs()
+				.stream()
+				.filter(cfg -> cfg.getDescriptor().getName().equals("readAnalog"))
+				.map(CFG::getDescriptor)
+				.forEach(descriptor -> descriptor.addAnnotation(Taint.TAINTED_ANNOTATION));
+
+		// the map function is marked as a sanitizer of tainted data,
+		// and thus its return type is always clean
+		if (useSanitizer)
+			cppProgram.getAllCFGs()
+					.stream()
+					.filter(cfg -> cfg.getDescriptor().getName().equals("map"))
+					.map(CFG::getDescriptor)
+					.forEach(descriptor -> descriptor.addAnnotation(Taint.CLEAN_ANNOTATION));
 	}
 
-	private static void buildString(Program program) {
-		CompilationUnit string = new CompilationUnit(App.LIB_LOCATION, ClassType.JAVA_LANG_STRING, false);
-		string.addSuperUnit(OBJECT_TYPE.getUnit());
-		program.addCompilationUnit(string);
-		// this will automatically register it inside the types cache
-		STRING_TYPE = new StringType(string);
+	private static Program merge(Program p1, Program p2) {
+		Program merged = new Program();
+
+		p1.getCFGs().forEach(merged::addCFG);
+		p1.getConstructs().forEach(merged::addConstruct);
+		p1.getGlobals().forEach(merged::addGlobal);
+		p1.getUnits().forEach(merged::addCompilationUnit);
+		p1.getEntryPoints().forEach(merged::addEntryPoint);
+
+		p2.getCFGs().forEach(merged::addCFG);
+		p2.getConstructs().forEach(merged::addConstruct);
+		p2.getGlobals().forEach(merged::addGlobal);
+		p2.getUnits().forEach(merged::addCompilationUnit);
+		p2.getEntryPoints().forEach(merged::addEntryPoint);
+
+		return merged;
 	}
 }

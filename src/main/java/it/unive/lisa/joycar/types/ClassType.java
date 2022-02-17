@@ -1,11 +1,13 @@
-package it.unive.lisa.joycar.java.types;
+package it.unive.lisa.joycar.types;
 
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
+import it.unive.lisa.joycar.units.JavaObject;
 import it.unive.lisa.program.CompilationUnit;
 import it.unive.lisa.type.Type;
 import it.unive.lisa.type.UnitType;
@@ -14,13 +16,11 @@ import it.unive.lisa.util.collections.workset.WorkingSet;
 
 public class ClassType implements UnitType {
 
-	public static final String JAVA_LANG_OBJECT = "java.lang.Object";
-	public static final String JAVA_LANG_STRING = "java.lang.String";
-
 	protected static final Map<String, ClassType> types = new HashMap<>();
 
 	public static Collection<ClassType> all() {
-		return types.values();
+		// remove the ones added due to the ugly parsing of cpp calls
+		return types.values().stream().filter(ct -> ct.unit != null).collect(Collectors.toList());
 	}
 
 	public static ClassType lookup(String name, CompilationUnit unit) {
@@ -32,6 +32,8 @@ public class ClassType implements UnitType {
 	private final CompilationUnit unit;
 
 	protected ClassType(String name, CompilationUnit unit) {
+//		Objects.requireNonNull(name);
+//		Objects.requireNonNull(unit);
 		this.name = name;
 		this.unit = unit;
 	}
@@ -56,7 +58,7 @@ public class ClassType implements UnitType {
 			return this;
 
 		if (!other.isUnitType())
-			return lookup(JAVA_LANG_OBJECT, null);
+			return lookup(JavaObject.NAME, null);
 
 		if (canBeAssignedTo(other))
 			return other;
@@ -84,7 +86,7 @@ public class ClassType implements UnitType {
 			current.unit.getSuperUnits().forEach(u -> ws.push(lookup(u.getName(), null)));
 		}
 
-		return lookup(JAVA_LANG_OBJECT, null);
+		return lookup(JavaObject.NAME, null);
 	}
 
 	@Override
