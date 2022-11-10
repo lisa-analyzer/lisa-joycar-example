@@ -6,4 +6,4 @@ The original code ([this folder](/original/) contain simplified versions of thos
 
 To execute, use `./gradlew run`. As described in the paper, the analysis can generate zero or one warning, depending if you consider function `map` as a sanitizer. Execute `./gradlew run --args="sanitize"` to consider it. The program will build the CFG representation and execute LiSA inside `analysis/<random UUID>`, dumping a json report and the dot files with the analysis results (where `_|_` represents a bottom value, `_` represents a clean value and `#` represents a tainted value). The warnings generated, as well as the folder containing the results, will be shown at the end of the log.
 
-Version of LiSA used is `0.1b3`.
+Version of LiSA used is `0.1b7`.
