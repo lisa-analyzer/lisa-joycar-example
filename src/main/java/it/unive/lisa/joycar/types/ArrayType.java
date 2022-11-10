@@ -4,11 +4,13 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.lang3.tuple.Pair;
 
 import it.unive.lisa.joycar.units.JavaObject;
 import it.unive.lisa.type.Type;
+import it.unive.lisa.type.TypeSystem;
 
 public class ArrayType implements it.unive.lisa.type.ArrayType {
 
@@ -122,7 +124,7 @@ public class ArrayType implements it.unive.lisa.type.ArrayType {
 	}
 
 	@Override
-	public Collection<Type> allInstances() {
+	public Set<Type> allInstances(TypeSystem types) {
 		return Collections.singleton(this);
 	}
 }

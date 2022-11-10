@@ -5,11 +5,12 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import it.unive.lisa.joycar.units.JavaObject;
 import it.unive.lisa.program.CompilationUnit;
+import it.unive.lisa.program.Unit;
 import it.unive.lisa.type.Type;
+import it.unive.lisa.type.TypeSystem;
 import it.unive.lisa.type.UnitType;
 import it.unive.lisa.util.collections.workset.FIFOWorkingSet;
 import it.unive.lisa.util.collections.workset.WorkingSet;
@@ -19,8 +20,7 @@ public class ClassType implements UnitType {
 	protected static final Map<String, ClassType> types = new HashMap<>();
 
 	public static Collection<ClassType> all() {
-		// remove the ones added due to the ugly parsing of cpp calls
-		return types.values().stream().filter(ct -> ct.unit != null).collect(Collectors.toList());
+		return types.values();
 	}
 
 	public static ClassType lookup(String name, CompilationUnit unit) {
@@ -32,8 +32,6 @@ public class ClassType implements UnitType {
 	private final CompilationUnit unit;
 
 	protected ClassType(String name, CompilationUnit unit) {
-//		Objects.requireNonNull(name);
-//		Objects.requireNonNull(unit);
 		this.name = name;
 		this.unit = unit;
 	}
@@ -58,6 +56,7 @@ public class ClassType implements UnitType {
 			return this;
 
 		if (!other.isUnitType())
+			// valid since in this program we do not have cpp classes
 			return lookup(JavaObject.NAME, null);
 
 		if (canBeAssignedTo(other))
@@ -83,7 +82,7 @@ public class ClassType implements UnitType {
 				return current;
 
 			// null since we do not want to create new types here
-			current.unit.getSuperUnits().forEach(u -> ws.push(lookup(u.getName(), null)));
+			current.unit.getImmediateAncestors().forEach(u -> ws.push(lookup(u.getName(), null)));
 		}
 
 		return lookup(JavaObject.NAME, null);
@@ -126,9 +125,9 @@ public class ClassType implements UnitType {
 	}
 
 	@Override
-	public Collection<Type> allInstances() {
-		Collection<Type> instances = new HashSet<>();
-		for (CompilationUnit in : unit.getInstances())
+	public Set<Type> allInstances(TypeSystem types) {
+		Set<Type> instances = new HashSet<>();
+		for (Unit in : unit.getInstances())
 			instances.add(lookup(in.getName(), null));
 		return instances;
 	}

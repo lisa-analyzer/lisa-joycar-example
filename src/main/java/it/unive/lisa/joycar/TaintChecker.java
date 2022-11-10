@@ -3,12 +3,11 @@ package it.unive.lisa.joycar;
 import it.unive.lisa.analysis.CFGWithAnalysisResults;
 import it.unive.lisa.analysis.SimpleAbstractState;
 import it.unive.lisa.analysis.heap.MonolithicHeap;
-import it.unive.lisa.analysis.nonrelational.inference.InferenceSystem;
 import it.unive.lisa.analysis.nonrelational.value.TypeEnvironment;
+import it.unive.lisa.analysis.nonrelational.value.ValueEnvironment;
 import it.unive.lisa.analysis.types.InferredTypes;
 import it.unive.lisa.checks.semantic.CheckToolWithAnalysisResults;
 import it.unive.lisa.checks.semantic.SemanticCheck;
-import it.unive.lisa.program.CompilationUnit;
 import it.unive.lisa.program.Global;
 import it.unive.lisa.program.Unit;
 import it.unive.lisa.program.annotations.Annotation;
@@ -21,9 +20,9 @@ import it.unive.lisa.program.cfg.statement.Statement;
 import it.unive.lisa.program.cfg.statement.call.Call;
 
 public class TaintChecker implements
-		SemanticCheck<SimpleAbstractState<MonolithicHeap, InferenceSystem<Taint>, TypeEnvironment<InferredTypes>>,
+		SemanticCheck<SimpleAbstractState<MonolithicHeap, ValueEnvironment<Taint>, TypeEnvironment<InferredTypes>>,
 				MonolithicHeap,
-				InferenceSystem<Taint>,
+				ValueEnvironment<Taint>,
 				TypeEnvironment<InferredTypes>> {
 
 	public static final Annotation SINK_ANNOTATION = new Annotation("lisa.taint.Sink");
@@ -46,47 +45,47 @@ public class TaintChecker implements
 
 	@Override
 	public void beforeExecution(CheckToolWithAnalysisResults<
-			SimpleAbstractState<MonolithicHeap, InferenceSystem<Taint>, TypeEnvironment<InferredTypes>>, MonolithicHeap,
-			InferenceSystem<Taint>, TypeEnvironment<InferredTypes>> tool) {
+			SimpleAbstractState<MonolithicHeap, ValueEnvironment<Taint>, TypeEnvironment<InferredTypes>>, MonolithicHeap,
+			ValueEnvironment<Taint>, TypeEnvironment<InferredTypes>> tool) {
 	}
 
 	@Override
 	public void afterExecution(CheckToolWithAnalysisResults<
-			SimpleAbstractState<MonolithicHeap, InferenceSystem<Taint>, TypeEnvironment<InferredTypes>>, MonolithicHeap,
-			InferenceSystem<Taint>, TypeEnvironment<InferredTypes>> tool) {
+			SimpleAbstractState<MonolithicHeap, ValueEnvironment<Taint>, TypeEnvironment<InferredTypes>>, MonolithicHeap,
+			ValueEnvironment<Taint>, TypeEnvironment<InferredTypes>> tool) {
 	}
 
 	@Override
-	public boolean visitCompilationUnit(
+	public boolean visitUnit(
 			CheckToolWithAnalysisResults<
-					SimpleAbstractState<MonolithicHeap, InferenceSystem<Taint>, TypeEnvironment<InferredTypes>>,
-					MonolithicHeap, InferenceSystem<Taint>, TypeEnvironment<InferredTypes>> tool,
-			CompilationUnit unit) {
+					SimpleAbstractState<MonolithicHeap, ValueEnvironment<Taint>, TypeEnvironment<InferredTypes>>,
+					MonolithicHeap, ValueEnvironment<Taint>, TypeEnvironment<InferredTypes>> tool,
+			Unit unit) {
 		return true;
 	}
 
 	@Override
 	public void visitGlobal(
 			CheckToolWithAnalysisResults<
-					SimpleAbstractState<MonolithicHeap, InferenceSystem<Taint>, TypeEnvironment<InferredTypes>>,
-					MonolithicHeap, InferenceSystem<Taint>, TypeEnvironment<InferredTypes>> tool,
+					SimpleAbstractState<MonolithicHeap, ValueEnvironment<Taint>, TypeEnvironment<InferredTypes>>,
+					MonolithicHeap, ValueEnvironment<Taint>, TypeEnvironment<InferredTypes>> tool,
 			Unit unit, Global global, boolean instance) {
 	}
 
 	@Override
 	public boolean visit(CheckToolWithAnalysisResults<
-			SimpleAbstractState<MonolithicHeap, InferenceSystem<Taint>, TypeEnvironment<InferredTypes>>, MonolithicHeap,
-			InferenceSystem<Taint>, TypeEnvironment<InferredTypes>> tool, CFG graph) {
+			SimpleAbstractState<MonolithicHeap, ValueEnvironment<Taint>, TypeEnvironment<InferredTypes>>, MonolithicHeap,
+			ValueEnvironment<Taint>, TypeEnvironment<InferredTypes>> tool, CFG graph) {
 		Parameter[] parameters = graph.getDescriptor().getFormals();
 		for (int i = 0; i < parameters.length; i++)
 			if (parameters[i].getAnnotations().contains(SINK_MATCHER))
 				for (Call call : tool.getCallSites(graph))
 					for (CFGWithAnalysisResults<
-							SimpleAbstractState<MonolithicHeap, InferenceSystem<Taint>, TypeEnvironment<InferredTypes>>,
-							MonolithicHeap, InferenceSystem<Taint>, TypeEnvironment<InferredTypes>> result : tool
+							SimpleAbstractState<MonolithicHeap, ValueEnvironment<Taint>, TypeEnvironment<InferredTypes>>,
+							MonolithicHeap, ValueEnvironment<Taint>, TypeEnvironment<InferredTypes>> result : tool
 									.getResultOf(call.getCFG()))
 						if (result.getAnalysisStateAfter(call.getParameters()[i]).getState().getValueState()
-								.getInferredValue().isTainted())
+								.getValueOnStack().isTainted())
 							tool.warnOn(call, "The value passed for the " + ordinal(i + 1)
 									+ " parameter of this call is tainted, and it reaches the sink at parameter '"
 									+ parameters[i].getName() + "' of " + graph.getDescriptor().getFullName());
@@ -97,8 +96,8 @@ public class TaintChecker implements
 	@Override
 	public boolean visit(
 			CheckToolWithAnalysisResults<
-					SimpleAbstractState<MonolithicHeap, InferenceSystem<Taint>, TypeEnvironment<InferredTypes>>,
-					MonolithicHeap, InferenceSystem<Taint>, TypeEnvironment<InferredTypes>> tool,
+					SimpleAbstractState<MonolithicHeap, ValueEnvironment<Taint>, TypeEnvironment<InferredTypes>>,
+					MonolithicHeap, ValueEnvironment<Taint>, TypeEnvironment<InferredTypes>> tool,
 			CFG graph, Statement node) {
 		return true;
 	}
@@ -106,8 +105,8 @@ public class TaintChecker implements
 	@Override
 	public boolean visit(
 			CheckToolWithAnalysisResults<
-					SimpleAbstractState<MonolithicHeap, InferenceSystem<Taint>, TypeEnvironment<InferredTypes>>,
-					MonolithicHeap, InferenceSystem<Taint>, TypeEnvironment<InferredTypes>> tool,
+					SimpleAbstractState<MonolithicHeap, ValueEnvironment<Taint>, TypeEnvironment<InferredTypes>>,
+					MonolithicHeap, ValueEnvironment<Taint>, TypeEnvironment<InferredTypes>> tool,
 			CFG graph, Edge edge) {
 		return true;
 	}

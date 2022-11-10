@@ -9,7 +9,7 @@ repositories {
     mavenCentral()
     maven {
         name = "GitHubPackages"
-        url 'https://maven.pkg.github.com/UniVE-SSV/lisa'
+        url 'https://maven.pkg.github.com/lisa-analyzer/lisa'
         credentials {
 			username = project.findProperty("gpr.user") ?: System.getenv("USERNAME")
         	password = project.findProperty("gpr.key") ?: System.getenv("TOKEN")
@@ -19,7 +19,7 @@ repositories {
 
 dependencies {
     antlr 'org.antlr:antlr4:4.8-1'    
-    implementation 'com.github.unive-ssv:lisa-core:0.1b5-SNAPSHOT'
+    implementation 'io.github.lisa-analyzer:lisa-core:0.1b7'
 }
 
 application {

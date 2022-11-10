@@ -14,7 +14,7 @@ import it.unive.lisa.program.cfg.statement.Expression;
 import it.unive.lisa.symbolic.SymbolicExpression;
 import it.unive.lisa.symbolic.value.BinaryExpression;
 import it.unive.lisa.symbolic.value.operator.binary.NumericNonOverflowingDiv;
-import it.unive.lisa.type.Type;
+import it.unive.lisa.type.TypeSystem;
 
 public class Division extends it.unive.lisa.program.cfg.statement.BinaryExpression {
 
@@ -23,7 +23,7 @@ public class Division extends it.unive.lisa.program.cfg.statement.BinaryExpressi
 	}
 
 	@Override
-	protected <A extends AbstractState<A, H, V, T>,
+	public <A extends AbstractState<A, H, V, T>,
 			H extends HeapDomain<H>,
 			V extends ValueDomain<V>,
 			T extends TypeDomain<T>> AnalysisState<A, H, V, T> binarySemantics(
@@ -33,12 +33,11 @@ public class Division extends it.unive.lisa.program.cfg.statement.BinaryExpressi
 					SymbolicExpression right,
 					StatementStore<A, H, V, T> expressions)
 					throws SemanticException {
+		TypeSystem types = getProgram().getTypes();
 		// we allow untyped for the type inference phase
-		if (left.getRuntimeTypes().noneMatch(Type::isNumericType)
-				&& left.getRuntimeTypes().noneMatch(Type::isUntyped))
+		if (left.getRuntimeTypes(types).stream().noneMatch(t -> t.isNumericType() || t.isUntyped()))
 			return state.bottom();
-		if (right.getRuntimeTypes().noneMatch(Type::isNumericType)
-				&& right.getRuntimeTypes().noneMatch(Type::isUntyped))
+		if (right.getRuntimeTypes(types).stream().noneMatch(t -> t.isNumericType() || t.isUntyped()))
 			return state.bottom();
 
 		return state.smallStepSemantics(

@@ -2,7 +2,9 @@ package it.unive.lisa.joycar;
 
 import it.unive.lisa.analysis.Lattice;
 import it.unive.lisa.analysis.SemanticException;
-import it.unive.lisa.analysis.nonrelational.inference.BaseInferredValue;
+import it.unive.lisa.analysis.SemanticDomain.Satisfiability;
+import it.unive.lisa.analysis.nonrelational.value.BaseNonRelationalValueDomain;
+import it.unive.lisa.analysis.nonrelational.value.ValueEnvironment;
 import it.unive.lisa.analysis.representation.DomainRepresentation;
 import it.unive.lisa.analysis.representation.StringRepresentation;
 import it.unive.lisa.program.annotations.Annotation;
@@ -11,13 +13,21 @@ import it.unive.lisa.program.annotations.matcher.AnnotationMatcher;
 import it.unive.lisa.program.annotations.matcher.BasicAnnotationMatcher;
 import it.unive.lisa.program.cfg.ProgramPoint;
 import it.unive.lisa.symbolic.SymbolicExpression;
+import it.unive.lisa.symbolic.value.BinaryExpression;
 import it.unive.lisa.symbolic.value.Constant;
 import it.unive.lisa.symbolic.value.Identifier;
+import it.unive.lisa.symbolic.value.NullConstant;
+import it.unive.lisa.symbolic.value.TernaryExpression;
+import it.unive.lisa.symbolic.value.UnaryExpression;
+import it.unive.lisa.symbolic.value.ValueExpression;
 import it.unive.lisa.symbolic.value.operator.binary.BinaryOperator;
+import it.unive.lisa.symbolic.value.operator.binary.LogicalAnd;
+import it.unive.lisa.symbolic.value.operator.binary.LogicalOr;
 import it.unive.lisa.symbolic.value.operator.ternary.TernaryOperator;
+import it.unive.lisa.symbolic.value.operator.unary.LogicalNegation;
 import it.unive.lisa.symbolic.value.operator.unary.UnaryOperator;
 
-public class Taint extends BaseInferredValue<Taint> {
+public class Taint extends BaseNonRelationalValueDomain<Taint> {
 
 	public static final Annotation TAINTED_ANNOTATION = new Annotation("lisa.taint.Tainted");
 
@@ -60,7 +70,7 @@ public class Taint extends BaseInferredValue<Taint> {
 
 	@Override
 	public DomainRepresentation representation() {
-		return this == BOTTOM ? Lattice.BOTTOM_REPR
+		return this == BOTTOM ? Lattice.bottomRepresentation()
 				: this == CLEAN ? new StringRepresentation("_") : new StringRepresentation("#");
 	}
 
@@ -79,34 +89,30 @@ public class Taint extends BaseInferredValue<Taint> {
 	}
 
 	@Override
-	protected InferredPair<Taint> evalNullConstant(Taint state, ProgramPoint pp)
+	public Taint evalNullConstant(ProgramPoint pp) throws SemanticException {
+		return CLEAN;
+	}
+
+	@Override
+	public Taint evalNonNullConstant(Constant constant, ProgramPoint pp) throws SemanticException {
+		return CLEAN;
+	}
+
+	@Override
+	public Taint evalUnaryExpression(UnaryOperator operator, Taint arg, ProgramPoint pp) throws SemanticException {
+		return arg;
+	}
+
+	@Override
+	public Taint evalBinaryExpression(BinaryOperator operator, Taint left, Taint right, ProgramPoint pp)
 			throws SemanticException {
-		return new InferredPair<>(this, CLEAN, bottom());
+		return left.lub(right);
 	}
 
 	@Override
-	protected InferredPair<Taint> evalNonNullConstant(Constant constant, Taint state,
-			ProgramPoint pp) throws SemanticException {
-		return new InferredPair<>(this, CLEAN, bottom());
-	}
-
-	@Override
-	protected InferredPair<Taint> evalUnaryExpression(UnaryOperator operator, Taint arg,
-			Taint state, ProgramPoint pp) throws SemanticException {
-		return new InferredPair<>(this, arg, bottom());
-	}
-
-	@Override
-	protected InferredPair<Taint> evalBinaryExpression(BinaryOperator operator, Taint left,
-			Taint right, Taint state, ProgramPoint pp) throws SemanticException {
-		return new InferredPair<>(this, left.lub(right), bottom());
-	}
-
-	@Override
-	protected InferredPair<Taint> evalTernaryExpression(TernaryOperator operator, Taint left,
-			Taint middle, Taint right, Taint state, ProgramPoint pp)
+	public Taint evalTernaryExpression(TernaryOperator operator, Taint left, Taint middle, Taint right, ProgramPoint pp)
 			throws SemanticException {
-		return new InferredPair<>(this, left.lub(middle).lub(right), bottom());
+		return left.lub(middle).lub(right);
 	}
 
 	@Override
@@ -120,17 +126,17 @@ public class Taint extends BaseInferredValue<Taint> {
 	}
 
 	@Override
-	protected Taint lubAux(Taint other) throws SemanticException {
+	public Taint lubAux(Taint other) throws SemanticException {
 		return TAINTED; // should never happen
 	}
 
 	@Override
-	protected Taint wideningAux(Taint other) throws SemanticException {
+	public Taint wideningAux(Taint other) throws SemanticException {
 		return TAINTED; // should never happen
 	}
 
 	@Override
-	protected boolean lessOrEqualAux(Taint other) throws SemanticException {
+	public boolean lessOrEqualAux(Taint other) throws SemanticException {
 		return false; // should never happen
 	}
 
@@ -157,5 +163,74 @@ public class Taint extends BaseInferredValue<Taint> {
 		} else if (!taint.equals(other.taint))
 			return false;
 		return true;
+	}
+
+	@Override
+	public Satisfiability satisfies(ValueExpression expression, ValueEnvironment<Taint> environment,
+			ProgramPoint pp) throws SemanticException {
+		if (expression instanceof Identifier)
+			return satisfiesAbstractValue(environment.getState((Identifier) expression), pp);
+
+		if (expression instanceof NullConstant)
+			return satisfiesNullConstant(pp);
+
+		if (expression instanceof Constant)
+			return satisfiesNonNullConstant((Constant) expression, pp);
+
+		if (expression instanceof UnaryExpression) {
+			UnaryExpression unary = (UnaryExpression) expression;
+
+			if (unary.getOperator() == LogicalNegation.INSTANCE)
+				return satisfies((ValueExpression) unary.getExpression(), environment, pp).negate();
+			else {
+				Taint arg = eval((ValueExpression) unary.getExpression(), environment, pp);
+//				if (arg.isBottom())
+//					return Satisfiability.BOTTOM;
+
+				return satisfiesUnaryExpression(unary.getOperator(), arg, pp);
+			}
+		}
+
+		if (expression instanceof BinaryExpression) {
+			BinaryExpression binary = (BinaryExpression) expression;
+
+			if (binary.getOperator() == LogicalAnd.INSTANCE)
+				return satisfies((ValueExpression) binary.getLeft(), environment, pp)
+						.and(satisfies((ValueExpression) binary.getRight(), environment, pp));
+			else if (binary.getOperator() == LogicalOr.INSTANCE)
+				return satisfies((ValueExpression) binary.getLeft(), environment, pp)
+						.or(satisfies((ValueExpression) binary.getRight(), environment, pp));
+			else {
+				Taint left = eval((ValueExpression) binary.getLeft(), environment, pp);
+//				if (left.isBottom())
+//					return Satisfiability.BOTTOM;
+
+				Taint right = eval((ValueExpression) binary.getRight(), environment, pp);
+//				if (right.isBottom())
+//					return Satisfiability.BOTTOM;
+
+				return satisfiesBinaryExpression(binary.getOperator(), left, right, pp);
+			}
+		}
+
+		if (expression instanceof TernaryExpression) {
+			TernaryExpression ternary = (TernaryExpression) expression;
+
+			Taint left = eval((ValueExpression) ternary.getLeft(), environment, pp);
+//			if (left.isBottom())
+//				return Satisfiability.BOTTOM;
+
+			Taint middle = eval((ValueExpression) ternary.getMiddle(), environment, pp);
+//			if (middle.isBottom())
+//				return Satisfiability.BOTTOM;
+
+			Taint right = eval((ValueExpression) ternary.getRight(), environment, pp);
+//			if (right.isBottom())
+//				return Satisfiability.BOTTOM;
+
+			return satisfiesTernaryExpression(ternary.getOperator(), left, middle, right, pp);
+		}
+
+		return Satisfiability.UNKNOWN;
 	}
 }

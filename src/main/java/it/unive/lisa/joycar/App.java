@@ -9,10 +9,11 @@ import org.apache.logging.log4j.Logger;
 import it.unive.lisa.AnalysisException;
 import it.unive.lisa.LiSA;
 import it.unive.lisa.LiSAConfiguration;
+import it.unive.lisa.LiSAConfiguration.GraphType;
 import it.unive.lisa.analysis.SimpleAbstractState;
 import it.unive.lisa.analysis.heap.MonolithicHeap;
-import it.unive.lisa.analysis.nonrelational.inference.InferenceSystem;
 import it.unive.lisa.analysis.nonrelational.value.TypeEnvironment;
+import it.unive.lisa.analysis.nonrelational.value.ValueEnvironment;
 import it.unive.lisa.analysis.types.InferredTypes;
 import it.unive.lisa.checks.warnings.Warning;
 import it.unive.lisa.interprocedural.ContextBasedAnalysis;
@@ -21,15 +22,12 @@ import it.unive.lisa.interprocedural.ReturnTopPolicy;
 import it.unive.lisa.interprocedural.callgraph.RTACallGraph;
 import it.unive.lisa.joycar.types.ArrayType;
 import it.unive.lisa.joycar.types.ClassType;
-import it.unive.lisa.joycar.types.StringType;
-import it.unive.lisa.joycar.units.JNIEnv;
-import it.unive.lisa.joycar.units.JavaObject;
 import it.unive.lisa.program.Program;
 import it.unive.lisa.program.cfg.CFG;
 import it.unive.lisa.type.VoidType;
 import it.unive.lisa.type.common.BoolType;
-import it.unive.lisa.type.common.Int32;
-import it.unive.lisa.type.common.Int64;
+import it.unive.lisa.type.common.Int32Type;
+import it.unive.lisa.type.common.Int64Type;
 
 public class App {
 
@@ -40,38 +38,37 @@ public class App {
 	public static void main(String[] args) throws AnalysisException, IOException {
 		useSanitizer = args.length == 1 && args[0].equals("sanitize");
 
-		ClassType.lookup(JavaObject.NAME, JavaObject.INSTANCE);
-		ClassType.lookup(JavaObject.SHORT_NAME, JavaObject.INSTANCE);
-		new StringType(); // this will register it among the class types
-		ClassType.lookup(JNIEnv.SHORT_NAME, JNIEnv.INSTANCE);
+		// need to parse java first, as it registers the jni types
+		Program p1 = JavaFrontend.parse("original/JoyCar.java");
+		Program p2 = CppFrontend.parse("original/JoyCar.cpp");
+		addTaintAnnotations(p2);
 
-		Program p1 = CppFrontend.parse("original/JoyCar.cpp");
-		Program p2 = JavaFrontend.parse("original/JoyCar.java");
-		addTaintAnnotations(p1);
-
-		Program program = merge(p1, p2);
-
-		ClassType.all().forEach(program::registerType);
-		ArrayType.all().forEach(program::registerType);
-		program.registerType(Int32.INSTANCE);
-		program.registerType(Int64.INSTANCE);
-		program.registerType(BoolType.INSTANCE);
-		program.registerType(VoidType.INSTANCE);
+		p2.getTypes().registerType(Int32Type.INSTANCE);
+		p2.getTypes().registerType(Int64Type.INSTANCE);
+		p2.getTypes().registerType(BoolType.INSTANCE);
+		p2.getTypes().registerType(VoidType.INSTANCE);
+		ClassType.all().forEach(t -> p1.getTypes().registerType(t));
+		ArrayType.all().forEach(t -> p1.getTypes().registerType(t));
+		p1.getTypes().registerType(Int32Type.INSTANCE);
+		p1.getTypes().registerType(Int64Type.INSTANCE);
+		p1.getTypes().registerType(BoolType.INSTANCE);
+		p1.getTypes().registerType(VoidType.INSTANCE);
 
 		String workdir = "analysis/" + UUID.randomUUID();
 
-		LiSAConfiguration conf = new LiSAConfiguration()
-				.setWorkdir(workdir)
-				.setOpenCallPolicy(ReturnTopPolicy.INSTANCE)
-				.setJsonOutput(true)
-				.setDumpAnalysis(true)
-				.setInterproceduralAnalysis(new ContextBasedAnalysis<>(RecursionFreeToken.getSingleton()))
-				.setCallGraph(new RTACallGraph())
-				.setAbstractState(new SimpleAbstractState<>(new MonolithicHeap(), new InferenceSystem<>(new Taint()),
-						new TypeEnvironment<>(new InferredTypes())))
-				.addSemanticCheck(new TaintChecker());
+		LiSAConfiguration conf = new LiSAConfiguration();
+		conf.workdir = workdir;
+		conf.openCallPolicy = ReturnTopPolicy.INSTANCE;
+		conf.jsonOutput = true;
+		conf.serializeResults = true;
+		conf.analysisGraphs = GraphType.HTML_WITH_SUBNODES;
+		conf.interproceduralAnalysis = new ContextBasedAnalysis<>(RecursionFreeToken.getSingleton());
+		conf.callGraph = new RTACallGraph();
+		conf.abstractState = new SimpleAbstractState<>(new MonolithicHeap(), new ValueEnvironment<>(new Taint()),
+				new TypeEnvironment<>(new InferredTypes()));
+		conf.semanticChecks.add(new TaintChecker());
 		LiSA lisa = new LiSA(conf);
-		lisa.run(program);
+		lisa.run(p2, p1);
 
 		LOG.info("Analysis ran in: " + workdir);
 		LOG.info("The analysis generated the following warnings: ");
@@ -107,23 +104,5 @@ public class App {
 					.filter(cfg -> cfg.getDescriptor().getName().equals("map"))
 					.map(CFG::getDescriptor)
 					.forEach(descriptor -> descriptor.addAnnotation(Taint.CLEAN_ANNOTATION));
-	}
-
-	private static Program merge(Program p1, Program p2) {
-		Program merged = new Program();
-
-		p1.getCFGs().forEach(merged::addCFG);
-		p1.getConstructs().forEach(merged::addConstruct);
-		p1.getGlobals().forEach(merged::addGlobal);
-		p1.getUnits().forEach(merged::addCompilationUnit);
-		p1.getEntryPoints().forEach(merged::addEntryPoint);
-
-		p2.getCFGs().forEach(merged::addCFG);
-		p2.getConstructs().forEach(merged::addConstruct);
-		p2.getGlobals().forEach(merged::addGlobal);
-		p2.getUnits().forEach(merged::addCompilationUnit);
-		p2.getEntryPoints().forEach(merged::addEntryPoint);
-
-		return merged;
 	}
 }

@@ -13,10 +13,13 @@ import it.unive.lisa.program.SourceCodeLocation;
 import it.unive.lisa.program.cfg.CFG;
 import it.unive.lisa.program.cfg.CodeLocation;
 import it.unive.lisa.program.cfg.edge.Edge;
+import it.unive.lisa.program.cfg.edge.SequentialEdge;
 import it.unive.lisa.program.cfg.statement.Statement;
-import it.unive.lisa.util.datastructures.graph.AdjacencyMatrix;
+import it.unive.lisa.util.datastructures.graph.code.NodeList;
 
 public class ANTLRUtils {
+
+	public static final SequentialEdge SEQUENTIAL_SINGLETON = new SequentialEdge();
 
 	static CodeLocation fromContext(String file, ParserRuleContext ctx) {
 		return new SourceCodeLocation(file, getLine(ctx), getCol(ctx));
@@ -42,8 +45,8 @@ public class ANTLRUtils {
 		return tok.getCharPositionInLine();
 	}
 
-	static Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>, Statement> fromSingle(Statement st) {
-		AdjacencyMatrix<Statement, Edge, CFG> block = new AdjacencyMatrix<>();
+	static Triple<Statement, NodeList<CFG, Statement, Edge>, Statement> fromSingle(Statement st) {
+		NodeList<CFG, Statement, Edge> block = new NodeList<>(SEQUENTIAL_SINGLETON);
 		block.addNode(st);
 		return Triple.of(st, block, st);
 	}

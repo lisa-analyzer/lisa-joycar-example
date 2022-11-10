@@ -14,7 +14,7 @@ import it.unive.lisa.program.cfg.statement.Expression;
 import it.unive.lisa.symbolic.SymbolicExpression;
 import it.unive.lisa.symbolic.value.UnaryExpression;
 import it.unive.lisa.symbolic.value.operator.unary.NumericNegation;
-import it.unive.lisa.type.Type;
+import it.unive.lisa.type.TypeSystem;
 
 public class Negation extends it.unive.lisa.program.cfg.statement.UnaryExpression {
 
@@ -23,7 +23,7 @@ public class Negation extends it.unive.lisa.program.cfg.statement.UnaryExpressio
 	}
 
 	@Override
-	protected <A extends AbstractState<A, H, V, T>,
+	public <A extends AbstractState<A, H, V, T>,
 			H extends HeapDomain<H>,
 			V extends ValueDomain<V>,
 			T extends TypeDomain<T>> AnalysisState<A, H, V, T> unarySemantics(
@@ -32,9 +32,9 @@ public class Negation extends it.unive.lisa.program.cfg.statement.UnaryExpressio
 					SymbolicExpression expr,
 					StatementStore<A, H, V, T> expressions)
 					throws SemanticException {
+		TypeSystem types = getProgram().getTypes();
 		// we allow untyped for the type inference phase
-		if (expr.getRuntimeTypes().noneMatch(Type::isNumericType)
-				&& expr.getRuntimeTypes().noneMatch(Type::isUntyped))
+		if (expr.getRuntimeTypes(types).stream().noneMatch(t -> t.isNumericType() || t.isUntyped()))
 			return state.bottom();
 
 		return state.smallStepSemantics(

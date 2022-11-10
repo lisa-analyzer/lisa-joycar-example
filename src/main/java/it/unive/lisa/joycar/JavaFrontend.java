@@ -94,13 +94,16 @@ import it.unive.lisa.joycar.antlr.Java8ParserBaseVisitor;
 import it.unive.lisa.joycar.statements.JavaNewObj;
 import it.unive.lisa.joycar.types.ArrayType;
 import it.unive.lisa.joycar.types.ClassType;
+import it.unive.lisa.joycar.types.StringType;
 import it.unive.lisa.joycar.units.JNIEnv;
 import it.unive.lisa.joycar.units.JavaObject;
+import it.unive.lisa.joycar.units.JavaString;
+import it.unive.lisa.program.ClassUnit;
 import it.unive.lisa.program.CompilationUnit;
 import it.unive.lisa.program.Program;
 import it.unive.lisa.program.cfg.CFG;
-import it.unive.lisa.program.cfg.CFGDescriptor;
 import it.unive.lisa.program.cfg.CodeLocation;
+import it.unive.lisa.program.cfg.CodeMemberDescriptor;
 import it.unive.lisa.program.cfg.Parameter;
 import it.unive.lisa.program.cfg.controlFlow.IfThenElse;
 import it.unive.lisa.program.cfg.controlFlow.Loop;
@@ -117,9 +120,6 @@ import it.unive.lisa.program.cfg.statement.Statement;
 import it.unive.lisa.program.cfg.statement.VariableRef;
 import it.unive.lisa.program.cfg.statement.call.Call.CallType;
 import it.unive.lisa.program.cfg.statement.call.UnresolvedCall;
-import it.unive.lisa.program.cfg.statement.call.assignment.OrderPreservingAssigningStrategy;
-import it.unive.lisa.program.cfg.statement.call.resolution.RuntimeTypesMatchingStrategy;
-import it.unive.lisa.program.cfg.statement.call.traversal.SingleInheritanceTraversalStrategy;
 import it.unive.lisa.program.cfg.statement.comparison.Equal;
 import it.unive.lisa.program.cfg.statement.comparison.GreaterOrEqual;
 import it.unive.lisa.program.cfg.statement.comparison.GreaterThan;
@@ -133,8 +133,8 @@ import it.unive.lisa.type.ReferenceType;
 import it.unive.lisa.type.Type;
 import it.unive.lisa.type.VoidType;
 import it.unive.lisa.type.common.BoolType;
-import it.unive.lisa.type.common.Int32;
-import it.unive.lisa.util.datastructures.graph.AdjacencyMatrix;
+import it.unive.lisa.type.common.Int32Type;
+import it.unive.lisa.util.datastructures.graph.code.NodeList;
 
 public class JavaFrontend extends Java8ParserBaseVisitor<Object> {
 
@@ -153,12 +153,18 @@ public class JavaFrontend extends Java8ParserBaseVisitor<Object> {
 		parser.setBuildParseTree(true);
 
 		CompilationUnitContext unit = parser.compilationUnit();
-		Program p = new JavaFrontend(file).visitCompilationUnit(unit);
+		JavaFrontend frontend = new JavaFrontend(file);
+		ClassType.lookup(JavaObject.NAME, frontend.objectClass);
+		ClassType.lookup(JavaObject.SHORT_NAME, frontend.stringClass);
+		new StringType(frontend.stringClass); // this will register it among the class types
+		ClassType.lookup(JNIEnv.SHORT_NAME, frontend.jniEnvClass);
+		
+		Program p = frontend.visitCompilationUnit(unit);
 
 		p.getAllCFGs().stream()
 				.filter(cfg -> !cfg.getDescriptor().isInstance() && cfg.getDescriptor().getName().equals("main"))
 				.forEach(p::addEntryPoint);
-
+		
 		return p;
 	}
 
@@ -166,26 +172,31 @@ public class JavaFrontend extends Java8ParserBaseVisitor<Object> {
 
 	private Program program;
 
-	private AdjacencyMatrix<Statement, Edge, CFG> matrix;
+	private NodeList<CFG, Statement, Edge> matrix;
 
 	private CFG currentCfg;
 
 	private boolean lastParsedStaticFlag;
 
 	private CompilationUnit currentUnit;
+	
+	public JavaObject objectClass;
+	public JavaString stringClass;
+	public JNIEnv jniEnvClass;
 
 	private JavaFrontend(String file) {
 		this.file = file;
+		program = new Program(new JavaFeatures(), new JavaTypeSystem());
+		objectClass = new JavaObject(program);
+		stringClass = new JavaString(program, objectClass);
+		jniEnvClass = new JNIEnv(program, objectClass);
 	}
 
 	@Override
 	public Program visitCompilationUnit(CompilationUnitContext ctx) {
-		program = new Program();
-
 		if (ctx.typeDeclaration() != null)
 			for (TypeDeclarationContext type : ctx.typeDeclaration())
 				visitTypeDeclaration(type);
-
 		return program;
 	}
 
@@ -209,10 +220,10 @@ public class JavaFrontend extends Java8ParserBaseVisitor<Object> {
 	public CompilationUnit visitNormalClassDeclaration(NormalClassDeclarationContext ctx) {
 		String name = ctx.Identifier().getText();
 
-		currentUnit = new CompilationUnit(fromContext(file, ctx), name, false);
-		currentUnit.addSuperUnit(JavaObject.INSTANCE);
+		currentUnit = new ClassUnit(fromContext(file, ctx), program, name, false);
+		currentUnit.addAncestor(objectClass);
 
-		program.addCompilationUnit(currentUnit);
+		program.addUnit(currentUnit);
 
 		ClassType.lookup(name, currentUnit);
 
@@ -256,10 +267,10 @@ public class JavaFrontend extends Java8ParserBaseVisitor<Object> {
 
 		lastParsedStaticFlag = static_;
 
-		CFGDescriptor descriptor = visitMethodHeader(ctx.methodHeader());
+		CodeMemberDescriptor descriptor = visitMethodHeader(ctx.methodHeader());
 
 		Collection<Statement> entrypoints = new LinkedList<>();
-		matrix = new AdjacencyMatrix<>();
+		matrix = new NodeList<>(ANTLRUtils.SEQUENTIAL_SINGLETON);
 		currentCfg = new CFG(descriptor, entrypoints, matrix);
 
 		if (native_)
@@ -270,15 +281,16 @@ public class JavaFrontend extends Java8ParserBaseVisitor<Object> {
 		currentCfg.simplify();
 
 		if (lastParsedStaticFlag)
-			currentUnit.addCFG(currentCfg);
+			currentUnit.addCodeMember(currentCfg);
 		else
-			currentUnit.addInstanceCFG(currentCfg);
+			currentUnit.addInstanceCodeMember(currentCfg);
 
 		return currentCfg;
 	}
 
-	private void parseCode(MethodDeclarationContext ctx, CFGDescriptor descriptor, Collection<Statement> entrypoints) {
-		Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>,
+	private void parseCode(MethodDeclarationContext ctx, CodeMemberDescriptor descriptor,
+			Collection<Statement> entrypoints) {
+		Triple<Statement, NodeList<CFG, Statement, Edge>,
 				Statement> visited = visitMethodBody(ctx.methodBody());
 		entrypoints.add(visited.getLeft());
 		matrix.mergeWith(visited.getMiddle());
@@ -313,7 +325,7 @@ public class JavaFrontend extends Java8ParserBaseVisitor<Object> {
 		}
 	}
 
-	private void parseAsNative(MethodDeclarationContext ctx, CFGDescriptor descriptor) {
+	private void parseAsNative(MethodDeclarationContext ctx, CodeMemberDescriptor descriptor) {
 		String name = "Java_" + currentUnit.getName().replace('.', '_') + "_" + descriptor.getName();
 
 		Parameter[] formals = descriptor.getFormals();
@@ -328,9 +340,6 @@ public class JavaFrontend extends Java8ParserBaseVisitor<Object> {
 		UnresolvedCall call = new UnresolvedCall(
 				currentCfg,
 				fromContext(file, ctx),
-				OrderPreservingAssigningStrategy.INSTANCE,
-				RuntimeTypesMatchingStrategy.INSTANCE,
-				SingleInheritanceTraversalStrategy.INSTANCE,
 				CallType.STATIC,
 				program.getName(),
 				name,
@@ -346,7 +355,7 @@ public class JavaFrontend extends Java8ParserBaseVisitor<Object> {
 	}
 
 	@Override
-	public CFGDescriptor visitMethodHeader(MethodHeaderContext ctx) {
+	public CodeMemberDescriptor visitMethodHeader(MethodHeaderContext ctx) {
 		Type ret = visitResult(ctx.result());
 		String name = ctx.methodDeclarator().Identifier().getText();
 
@@ -363,7 +372,7 @@ public class JavaFrontend extends Java8ParserBaseVisitor<Object> {
 			formals.add(0, rec);
 		}
 
-		return new CFGDescriptor(fromContext(file, ctx), currentUnit, !lastParsedStaticFlag, name, ret,
+		return new CodeMemberDescriptor(fromContext(file, ctx), currentUnit, !lastParsedStaticFlag, name, ret,
 				formals.toArray(Parameter[]::new));
 	}
 
@@ -497,38 +506,38 @@ public class JavaFrontend extends Java8ParserBaseVisitor<Object> {
 	@Override
 	public Type visitIntegralType(IntegralTypeContext ctx) {
 		if (ctx.INT() != null)
-			return Int32.INSTANCE;
+			return Int32Type.INSTANCE;
 
 		throw notSupported(ctx);
 	}
 
 	@Override
-	public Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>, Statement> visitMethodBody(MethodBodyContext ctx) {
+	public Triple<Statement, NodeList<CFG, Statement, Edge>, Statement> visitMethodBody(MethodBodyContext ctx) {
 		if (ctx.block() == null)
 			return fromSingle(new NoOp(currentCfg, fromContext(file, ctx)));
 		return visitBlock(ctx.block());
 	}
 
 	@Override
-	public Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>, Statement> visitBlock(BlockContext ctx) {
+	public Triple<Statement, NodeList<CFG, Statement, Edge>, Statement> visitBlock(BlockContext ctx) {
 		if (ctx.blockStatements() == null)
 			return fromSingle(new NoOp(currentCfg, fromContext(file, ctx)));
 		return visitBlockStatements(ctx.blockStatements());
 	}
 
-	private static void addEdge(Edge e, AdjacencyMatrix<Statement, Edge, CFG> block) {
+	private static void addEdge(Edge e, NodeList<CFG, Statement, Edge> block) {
 		if (!e.getSource().stopsExecution())
 			block.addEdge(e);
 	}
 
 	@Override
-	public Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>, Statement> visitBlockStatements(
+	public Triple<Statement, NodeList<CFG, Statement, Edge>, Statement> visitBlockStatements(
 			BlockStatementsContext ctx) {
-		AdjacencyMatrix<Statement, Edge, CFG> block = new AdjacencyMatrix<>();
+		NodeList<CFG, Statement, Edge> block = new NodeList<>(ANTLRUtils.SEQUENTIAL_SINGLETON);
 
 		Statement first = null, last = null;
 		for (int i = 0; i < ctx.blockStatement().size(); i++) {
-			Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>,
+			Triple<Statement, NodeList<CFG, Statement, Edge>,
 					Statement> st = visitBlockStatement(ctx.blockStatement(i));
 			block.mergeWith(st.getMiddle());
 			if (first == null)
@@ -545,7 +554,7 @@ public class JavaFrontend extends Java8ParserBaseVisitor<Object> {
 	}
 
 	@Override
-	public Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>, Statement> visitBlockStatement(
+	public Triple<Statement, NodeList<CFG, Statement, Edge>, Statement> visitBlockStatement(
 			BlockStatementContext ctx) {
 		if (ctx.classDeclaration() != null)
 			throw notSupported(ctx);
@@ -557,7 +566,7 @@ public class JavaFrontend extends Java8ParserBaseVisitor<Object> {
 	}
 
 	@Override
-	public Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>, Statement> visitLocalVariableDeclarationStatement(
+	public Triple<Statement, NodeList<CFG, Statement, Edge>, Statement> visitLocalVariableDeclarationStatement(
 			LocalVariableDeclarationStatementContext ctx) {
 		return fromSingle(visitLocalVariableDeclaration(ctx.localVariableDeclaration()));
 	}
@@ -807,9 +816,6 @@ public class JavaFrontend extends Java8ParserBaseVisitor<Object> {
 		return new UnresolvedCall(
 				currentCfg,
 				fromContext(file, ctx),
-				OrderPreservingAssigningStrategy.INSTANCE,
-				RuntimeTypesMatchingStrategy.INSTANCE,
-				SingleInheritanceTraversalStrategy.INSTANCE,
 				CallType.UNKNOWN,
 				null,
 				target,
@@ -878,7 +884,7 @@ public class JavaFrontend extends Java8ParserBaseVisitor<Object> {
 	}
 
 	@Override
-	public Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>, Statement> visitStatement(StatementContext ctx) {
+	public Triple<Statement, NodeList<CFG, Statement, Edge>, Statement> visitStatement(StatementContext ctx) {
 		if (ctx.ifThenStatement() != null)
 			return visitIfThenStatement(ctx.ifThenStatement());
 
@@ -895,17 +901,17 @@ public class JavaFrontend extends Java8ParserBaseVisitor<Object> {
 	}
 
 	@Override
-	public Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>, Statement> visitIfThenElseStatement(
+	public Triple<Statement, NodeList<CFG, Statement, Edge>, Statement> visitIfThenElseStatement(
 			IfThenElseStatementContext ctx) {
 		Expression condition = visitExpression(ctx.expression());
 
-		Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>,
+		Triple<Statement, NodeList<CFG, Statement, Edge>,
 				Statement> trueBlock = visitStatementNoShortIf(ctx.statementNoShortIf());
 
-		Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>,
+		Triple<Statement, NodeList<CFG, Statement, Edge>,
 				Statement> falseBlock = visitStatement(ctx.statement());
 
-		AdjacencyMatrix<Statement, Edge, CFG> block = new AdjacencyMatrix<>();
+		NodeList<CFG, Statement, Edge> block = new NodeList<>(ANTLRUtils.SEQUENTIAL_SINGLETON);
 		NoOp exit = new NoOp(currentCfg, fromToken(file, ctx.IF().getSymbol()));
 		block.addNode(condition);
 		block.addNode(exit);
@@ -923,7 +929,7 @@ public class JavaFrontend extends Java8ParserBaseVisitor<Object> {
 	}
 
 	@Override
-	public Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>, Statement> visitStatementNoShortIf(
+	public Triple<Statement, NodeList<CFG, Statement, Edge>, Statement> visitStatementNoShortIf(
 			StatementNoShortIfContext ctx) {
 		if (ctx.statementWithoutTrailingSubstatement() != null)
 			return visitStatementWithoutTrailingSubstatement(ctx.statementWithoutTrailingSubstatement());
@@ -932,13 +938,13 @@ public class JavaFrontend extends Java8ParserBaseVisitor<Object> {
 	}
 
 	@Override
-	public Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>, Statement> visitWhileStatement(
+	public Triple<Statement, NodeList<CFG, Statement, Edge>, Statement> visitWhileStatement(
 			WhileStatementContext ctx) {
-		AdjacencyMatrix<Statement, Edge, CFG> block = new AdjacencyMatrix<>();
+		NodeList<CFG, Statement, Edge> block = new NodeList<>(ANTLRUtils.SEQUENTIAL_SINGLETON);
 
 		Statement condition = visitExpression(ctx.expression());
 
-		Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>, Statement> body = visitStatement(ctx.statement());
+		Triple<Statement, NodeList<CFG, Statement, Edge>, Statement> body = visitStatement(ctx.statement());
 
 		NoOp exit = new NoOp(currentCfg, fromToken(file, ctx.RPAREN().getSymbol()));
 
@@ -956,7 +962,7 @@ public class JavaFrontend extends Java8ParserBaseVisitor<Object> {
 	}
 
 	@Override
-	public Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>,
+	public Triple<Statement, NodeList<CFG, Statement, Edge>,
 			Statement> visitStatementWithoutTrailingSubstatement(StatementWithoutTrailingSubstatementContext ctx) {
 		if (ctx.expressionStatement() != null)
 			return visitExpressionStatement(ctx.expressionStatement());
@@ -971,7 +977,7 @@ public class JavaFrontend extends Java8ParserBaseVisitor<Object> {
 	}
 
 	@Override
-	public Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>, Statement> visitExpressionStatement(
+	public Triple<Statement, NodeList<CFG, Statement, Edge>, Statement> visitExpressionStatement(
 			ExpressionStatementContext ctx) {
 		return fromSingle(visitStatementExpression(ctx.statementExpression()));
 	}
@@ -1028,7 +1034,7 @@ public class JavaFrontend extends Java8ParserBaseVisitor<Object> {
 	}
 
 	@Override
-	public Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>, Statement> visitReturnStatement(
+	public Triple<Statement, NodeList<CFG, Statement, Edge>, Statement> visitReturnStatement(
 			ReturnStatementContext ctx) {
 		if (ctx.expression() == null)
 			return fromSingle(new Ret(currentCfg, fromContext(file, ctx)));
@@ -1036,14 +1042,14 @@ public class JavaFrontend extends Java8ParserBaseVisitor<Object> {
 	}
 
 	@Override
-	public Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>, Statement> visitIfThenStatement(
+	public Triple<Statement, NodeList<CFG, Statement, Edge>, Statement> visitIfThenStatement(
 			IfThenStatementContext ctx) {
 		Expression condition = visitExpression(ctx.expression());
 
-		Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>,
+		Triple<Statement, NodeList<CFG, Statement, Edge>,
 				Statement> trueBlock = visitStatement(ctx.statement());
 
-		AdjacencyMatrix<Statement, Edge, CFG> block = new AdjacencyMatrix<>();
+		NodeList<CFG, Statement, Edge> block = new NodeList<>(ANTLRUtils.SEQUENTIAL_SINGLETON);
 		NoOp exit = new NoOp(currentCfg, fromToken(file, ctx.IF().getSymbol()));
 		block.addNode(condition);
 		block.addNode(exit);

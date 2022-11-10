@@ -1,9 +1,10 @@
 package it.unive.lisa.joycar.types;
 
-import java.util.Collection;
 import java.util.Collections;
+import java.util.Set;
 
 import it.unive.lisa.type.Type;
+import it.unive.lisa.type.TypeSystem;
 
 public class JNIExportType implements Type {
 
@@ -22,7 +23,7 @@ public class JNIExportType implements Type {
 	}
 
 	@Override
-	public Collection<Type> allInstances() {
+	public Set<Type> allInstances(TypeSystem types) {
 		return Collections.singleton(this);
 	}
 

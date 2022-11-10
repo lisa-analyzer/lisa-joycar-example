@@ -101,8 +101,8 @@ import it.unive.lisa.joycar.types.JNIExportType;
 import it.unive.lisa.joycar.units.JavaObject;
 import it.unive.lisa.program.Program;
 import it.unive.lisa.program.cfg.CFG;
-import it.unive.lisa.program.cfg.CFGDescriptor;
 import it.unive.lisa.program.cfg.CodeLocation;
+import it.unive.lisa.program.cfg.CodeMemberDescriptor;
 import it.unive.lisa.program.cfg.Parameter;
 import it.unive.lisa.program.cfg.controlFlow.IfThenElse;
 import it.unive.lisa.program.cfg.controlFlow.Loop;
@@ -119,9 +119,6 @@ import it.unive.lisa.program.cfg.statement.Statement;
 import it.unive.lisa.program.cfg.statement.VariableRef;
 import it.unive.lisa.program.cfg.statement.call.Call.CallType;
 import it.unive.lisa.program.cfg.statement.call.UnresolvedCall;
-import it.unive.lisa.program.cfg.statement.call.assignment.OrderPreservingAssigningStrategy;
-import it.unive.lisa.program.cfg.statement.call.resolution.RuntimeTypesMatchingStrategy;
-import it.unive.lisa.program.cfg.statement.call.traversal.SingleInheritanceTraversalStrategy;
 import it.unive.lisa.program.cfg.statement.comparison.Equal;
 import it.unive.lisa.program.cfg.statement.comparison.GreaterOrEqual;
 import it.unive.lisa.program.cfg.statement.comparison.GreaterThan;
@@ -134,9 +131,9 @@ import it.unive.lisa.type.ReferenceType;
 import it.unive.lisa.type.Type;
 import it.unive.lisa.type.VoidType;
 import it.unive.lisa.type.common.BoolType;
-import it.unive.lisa.type.common.Int32;
-import it.unive.lisa.type.common.Int64;
-import it.unive.lisa.util.datastructures.graph.AdjacencyMatrix;
+import it.unive.lisa.type.common.Int32Type;
+import it.unive.lisa.type.common.Int64Type;
+import it.unive.lisa.util.datastructures.graph.code.NodeList;
 
 public class CppFrontend extends CPP14ParserBaseVisitor<Object> {
 
@@ -164,7 +161,7 @@ public class CppFrontend extends CPP14ParserBaseVisitor<Object> {
 
 	private Program program;
 
-	private AdjacencyMatrix<Statement, Edge, CFG> matrix;
+	private NodeList<CFG, Statement, Edge> matrix;
 
 	private CFG currentCfg;
 
@@ -174,7 +171,7 @@ public class CppFrontend extends CPP14ParserBaseVisitor<Object> {
 
 	@Override
 	public Program visitTranslationUnit(TranslationUnitContext ctx) {
-		program = new Program();
+		program = new Program(new CppFeatures(), new CppTypeSystem());
 
 		if (ctx.declarationseq() != null)
 			visitDeclarationseq(ctx.declarationseq());
@@ -216,14 +213,15 @@ public class CppFrontend extends CPP14ParserBaseVisitor<Object> {
 			else
 				notSupported(ctx.declSpecifierSeq());
 
-		CFGDescriptor descriptor = new CFGDescriptor(fromContext(file, ctx), program, false, sig.getLeft(),
+		CodeMemberDescriptor descriptor = new CodeMemberDescriptor(fromContext(file, ctx), program, false,
+				sig.getLeft(),
 				returnType, sig.getRight());
 
 		Collection<Statement> entrypoints = new LinkedList<>();
-		matrix = new AdjacencyMatrix<>();
+		matrix = new NodeList<>(ANTLRUtils.SEQUENTIAL_SINGLETON);
 		currentCfg = new CFG(descriptor, entrypoints, matrix);
 
-		Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>,
+		Triple<Statement, NodeList<CFG, Statement, Edge>,
 				Statement> visited = visitFunctionBody(ctx.functionBody());
 		entrypoints.add(visited.getLeft());
 		matrix.mergeWith(visited.getMiddle());
@@ -249,7 +247,7 @@ public class CppFrontend extends CPP14ParserBaseVisitor<Object> {
 
 		currentCfg.simplify();
 
-		program.addCFG(currentCfg);
+		program.addCodeMember(currentCfg);
 
 		return currentCfg;
 	}
@@ -296,7 +294,7 @@ public class CppFrontend extends CPP14ParserBaseVisitor<Object> {
 			return VoidType.INSTANCE;
 
 		if (ctx.Int() != null)
-			return Int32.INSTANCE;
+			return Int32Type.INSTANCE;
 
 		if (ctx.simpleTypeLengthModifier() != null
 				&& ctx.simpleTypeLengthModifier().size() == 1)
@@ -307,7 +305,7 @@ public class CppFrontend extends CPP14ParserBaseVisitor<Object> {
 			if (name.equals("JNIEXPORT") || name.equals("JNICALL"))
 				return JNIExportType.INSTANCE;
 			else if (name.equals("jint"))
-				return Int32.INSTANCE;
+				return Int32Type.INSTANCE;
 			else if (name.equals("jobject"))
 				return ClassType.lookup(JavaObject.NAME, null);
 			else if (name.equals("jboolean"))
@@ -337,7 +335,7 @@ public class CppFrontend extends CPP14ParserBaseVisitor<Object> {
 	@Override
 	public Type visitSimpleTypeLengthModifier(SimpleTypeLengthModifierContext ctx) {
 		if (ctx.Long() != null)
-			return Int64.INSTANCE;
+			return Int64Type.INSTANCE;
 
 		throw notSupported(ctx);
 	}
@@ -446,13 +444,13 @@ public class CppFrontend extends CPP14ParserBaseVisitor<Object> {
 	}
 
 	@Override
-	public Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>, Statement> visitFunctionBody(
+	public Triple<Statement, NodeList<CFG, Statement, Edge>, Statement> visitFunctionBody(
 			FunctionBodyContext ctx) {
 		return visitCompoundStatement(ctx.compoundStatement());
 	}
 
 	@Override
-	public Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>, Statement> visitCompoundStatement(
+	public Triple<Statement, NodeList<CFG, Statement, Edge>, Statement> visitCompoundStatement(
 			CompoundStatementContext ctx) {
 		if (ctx.statementSeq() == null)
 			return fromSingle(new NoOp(currentCfg, fromToken(file, ctx.LeftBrace().getSymbol())));
@@ -460,13 +458,13 @@ public class CppFrontend extends CPP14ParserBaseVisitor<Object> {
 	}
 
 	@Override
-	public Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>, Statement> visitStatementSeq(
+	public Triple<Statement, NodeList<CFG, Statement, Edge>, Statement> visitStatementSeq(
 			StatementSeqContext ctx) {
-		AdjacencyMatrix<Statement, Edge, CFG> block = new AdjacencyMatrix<>();
+		NodeList<CFG, Statement, Edge> block = new NodeList<>(ANTLRUtils.SEQUENTIAL_SINGLETON);
 
 		Statement first = null, last = null;
 		for (int i = 0; i < ctx.statement().size(); i++) {
-			Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>,
+			Triple<Statement, NodeList<CFG, Statement, Edge>,
 					Statement> st = visitStatement(ctx.statement(i));
 			block.mergeWith(st.getMiddle());
 			if (first == null)
@@ -482,13 +480,13 @@ public class CppFrontend extends CPP14ParserBaseVisitor<Object> {
 		return Triple.of(first, block, last);
 	}
 
-	private static void addEdge(Edge e, AdjacencyMatrix<Statement, Edge, CFG> block) {
+	private static void addEdge(Edge e, NodeList<CFG, Statement, Edge> block) {
 		if (!e.getSource().stopsExecution())
 			block.addEdge(e);
 	}
 
 	@Override
-	public Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>, Statement> visitStatement(StatementContext ctx) {
+	public Triple<Statement, NodeList<CFG, Statement, Edge>, Statement> visitStatement(StatementContext ctx) {
 		if (ctx.declarationStatement() != null)
 			return visitBlockDeclaration(ctx.declarationStatement().blockDeclaration());
 		if (ctx.selectionStatement() != null)
@@ -504,14 +502,14 @@ public class CppFrontend extends CPP14ParserBaseVisitor<Object> {
 	}
 
 	@Override
-	public Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>, Statement> visitIterationStatement(
+	public Triple<Statement, NodeList<CFG, Statement, Edge>, Statement> visitIterationStatement(
 			IterationStatementContext ctx) {
-		AdjacencyMatrix<Statement, Edge, CFG> block = new AdjacencyMatrix<>();
+		NodeList<CFG, Statement, Edge> block = new NodeList<>(ANTLRUtils.SEQUENTIAL_SINGLETON);
 
 		if (ctx.While() != null || ctx.Do() != null || ctx.forRangeDeclaration() != null)
 			throw notSupported(ctx);
 
-		Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>,
+		Triple<Statement, NodeList<CFG, Statement, Edge>,
 				Statement> init = visitForInitStatement(ctx.forInitStatement());
 
 		Statement condition;
@@ -526,7 +524,7 @@ public class CppFrontend extends CPP14ParserBaseVisitor<Object> {
 		else
 			post = new NoOp(currentCfg, fromToken(file, ctx.For().getSymbol()));
 
-		Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>, Statement> body = visitStatement(ctx.statement());
+		Triple<Statement, NodeList<CFG, Statement, Edge>, Statement> body = visitStatement(ctx.statement());
 
 		NoOp exit = new NoOp(currentCfg, fromToken(file, ctx.RightParen().getSymbol()));
 
@@ -554,7 +552,7 @@ public class CppFrontend extends CPP14ParserBaseVisitor<Object> {
 	}
 
 	@Override
-	public Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>, Statement> visitForInitStatement(
+	public Triple<Statement, NodeList<CFG, Statement, Edge>, Statement> visitForInitStatement(
 			ForInitStatementContext ctx) {
 		if (ctx.simpleDeclaration() != null)
 			return visitSimpleDeclaration(ctx.simpleDeclaration());
@@ -563,7 +561,7 @@ public class CppFrontend extends CPP14ParserBaseVisitor<Object> {
 	}
 
 	@Override
-	public Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>, Statement> visitExpressionStatement(
+	public Triple<Statement, NodeList<CFG, Statement, Edge>, Statement> visitExpressionStatement(
 			ExpressionStatementContext ctx) {
 		if (ctx.expression() != null)
 			return fromSingle(visitExpression(ctx.expression()));
@@ -572,7 +570,7 @@ public class CppFrontend extends CPP14ParserBaseVisitor<Object> {
 	}
 
 	@Override
-	public Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>, Statement> visitJumpStatement(
+	public Triple<Statement, NodeList<CFG, Statement, Edge>, Statement> visitJumpStatement(
 			JumpStatementContext ctx) {
 		if (ctx.Return() != null)
 			if (ctx.expression() != null)
@@ -584,7 +582,7 @@ public class CppFrontend extends CPP14ParserBaseVisitor<Object> {
 	}
 
 	@Override
-	public Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>, Statement> visitBlockDeclaration(
+	public Triple<Statement, NodeList<CFG, Statement, Edge>, Statement> visitBlockDeclaration(
 			BlockDeclarationContext ctx) {
 		if (ctx.usingDirective() != null) {
 			System.out.println("Ignoring '" + ctx.getText() + "'");
@@ -598,12 +596,12 @@ public class CppFrontend extends CPP14ParserBaseVisitor<Object> {
 	}
 
 	@Override
-	public Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>, Statement> visitSimpleDeclaration(
+	public Triple<Statement, NodeList<CFG, Statement, Edge>, Statement> visitSimpleDeclaration(
 			SimpleDeclarationContext ctx) {
 		if (ctx.initDeclaratorList() == null)
 			throw notSupported(ctx);
 
-		Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>,
+		Triple<Statement, NodeList<CFG, Statement, Edge>,
 				Statement> list = visitInitDeclaratorList(ctx.initDeclaratorList());
 		String declListText = ctx.initDeclaratorList().getText();
 		if (ctx.declSpecifierSeq() != null && declListText.startsWith("(") && declListText.endsWith(")")) {
@@ -621,7 +619,7 @@ public class CppFrontend extends CPP14ParserBaseVisitor<Object> {
 	}
 
 	@Override
-	public Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>, Statement> visitInitDeclaratorList(
+	public Triple<Statement, NodeList<CFG, Statement, Edge>, Statement> visitInitDeclaratorList(
 			InitDeclaratorListContext ctx) {
 		if (ctx.initDeclarator() == null || ctx.initDeclarator().size() != 1)
 			throw notSupported(ctx);
@@ -630,7 +628,7 @@ public class CppFrontend extends CPP14ParserBaseVisitor<Object> {
 	}
 
 	@Override
-	public Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>, Statement> visitInitDeclarator(
+	public Triple<Statement, NodeList<CFG, Statement, Edge>, Statement> visitInitDeclarator(
 			InitDeclaratorContext ctx) {
 		String id = visitDeclarator(ctx.declarator()).getLeft();
 
@@ -659,9 +657,6 @@ public class CppFrontend extends CPP14ParserBaseVisitor<Object> {
 		return new UnresolvedCall(
 				currentCfg,
 				fromContext(file, ctx),
-				OrderPreservingAssigningStrategy.INSTANCE,
-				RuntimeTypesMatchingStrategy.INSTANCE,
-				SingleInheritanceTraversalStrategy.INSTANCE,
 				CallType.STATIC,
 				null,
 				target,
@@ -943,23 +938,23 @@ public class CppFrontend extends CPP14ParserBaseVisitor<Object> {
 	}
 
 	@Override
-	public Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>, Statement> visitSelectionStatement(
+	public Triple<Statement, NodeList<CFG, Statement, Edge>, Statement> visitSelectionStatement(
 			SelectionStatementContext ctx) {
 		if (ctx.If() == null)
 			throw notSupported(ctx);
 
 		Expression condition = visitCondition(ctx.condition());
 
-		Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>,
+		Triple<Statement, NodeList<CFG, Statement, Edge>,
 				Statement> trueBlock = visitStatement(ctx.statement(0));
 
-		Triple<Statement, AdjacencyMatrix<Statement, Edge, CFG>, Statement> falseBlock;
+		Triple<Statement, NodeList<CFG, Statement, Edge>, Statement> falseBlock;
 		if (ctx.Else() != null)
 			falseBlock = visitStatement(ctx.statement(1));
 		else
 			falseBlock = fromSingle(new NoOp(currentCfg, fromToken(file, ctx.RightParen().getSymbol())));
 
-		AdjacencyMatrix<Statement, Edge, CFG> block = new AdjacencyMatrix<>();
+		NodeList<CFG, Statement, Edge> block = new NodeList<>(ANTLRUtils.SEQUENTIAL_SINGLETON);
 		NoOp exit = new NoOp(currentCfg, fromToken(file, ctx.If().getSymbol()));
 		block.addNode(condition);
 		block.addNode(exit);

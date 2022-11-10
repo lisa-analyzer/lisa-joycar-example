@@ -1,5 +1,7 @@
 package it.unive.lisa.joycar.statements;
 
+import java.util.Collections;
+
 import org.apache.commons.lang3.ArrayUtils;
 
 import it.unive.lisa.analysis.AbstractState;
@@ -10,7 +12,6 @@ import it.unive.lisa.analysis.heap.HeapDomain;
 import it.unive.lisa.analysis.lattices.ExpressionSet;
 import it.unive.lisa.analysis.value.TypeDomain;
 import it.unive.lisa.analysis.value.ValueDomain;
-import it.unive.lisa.caches.Caches;
 import it.unive.lisa.interprocedural.InterproceduralAnalysis;
 import it.unive.lisa.program.cfg.CFG;
 import it.unive.lisa.program.cfg.CodeLocation;
@@ -19,9 +20,6 @@ import it.unive.lisa.program.cfg.statement.NaryExpression;
 import it.unive.lisa.program.cfg.statement.VariableRef;
 import it.unive.lisa.program.cfg.statement.call.Call.CallType;
 import it.unive.lisa.program.cfg.statement.call.UnresolvedCall;
-import it.unive.lisa.program.cfg.statement.call.assignment.OrderPreservingAssigningStrategy;
-import it.unive.lisa.program.cfg.statement.call.resolution.JavaLikeMatchingStrategy;
-import it.unive.lisa.program.cfg.statement.call.traversal.SingleInheritanceTraversalStrategy;
 import it.unive.lisa.symbolic.SymbolicExpression;
 import it.unive.lisa.symbolic.heap.HeapAllocation;
 import it.unive.lisa.symbolic.heap.HeapReference;
@@ -51,8 +49,8 @@ public class JavaNewObj extends NaryExpression {
 
 		HeapAllocation created = new HeapAllocation(type, location);
 		HeapReference ref = new HeapReference(reftype, created, location);
-		created.setRuntimeTypes(Caches.types().mkSingletonSet(type));
-		ref.setRuntimeTypes(Caches.types().mkSingletonSet(reftype));
+		created.setRuntimeTypes(Collections.singleton(type));
+		ref.setRuntimeTypes(Collections.singleton(reftype));
 
 		// we need to add the receiver to the parameters
 		VariableRef paramThis = new VariableRef(getCFG(), location, "$lisareceiver", type);
@@ -69,9 +67,6 @@ public class JavaNewObj extends NaryExpression {
 		UnresolvedCall call = new UnresolvedCall(
 				getCFG(),
 				location,
-				OrderPreservingAssigningStrategy.INSTANCE,
-				JavaLikeMatchingStrategy.INSTANCE,
-				SingleInheritanceTraversalStrategy.INSTANCE,
 				CallType.INSTANCE,
 				type.toString(),
 				type.toString(),
