@@ -1,6 +1,9 @@
 package it.unive.lisa.joycar;
 
-import it.unive.lisa.analysis.CFGWithAnalysisResults;
+import it.unive.lisa.AnalysisExecutionException;
+import it.unive.lisa.analysis.AnalysisState;
+import it.unive.lisa.analysis.AnalyzedCFG;
+import it.unive.lisa.analysis.SemanticException;
 import it.unive.lisa.analysis.SimpleAbstractState;
 import it.unive.lisa.analysis.heap.MonolithicHeap;
 import it.unive.lisa.analysis.nonrelational.value.TypeEnvironment;
@@ -18,77 +21,116 @@ import it.unive.lisa.program.cfg.Parameter;
 import it.unive.lisa.program.cfg.edge.Edge;
 import it.unive.lisa.program.cfg.statement.Statement;
 import it.unive.lisa.program.cfg.statement.call.Call;
+import it.unive.lisa.symbolic.SymbolicExpression;
+import it.unive.lisa.symbolic.value.ValueExpression;
+import it.unive.lisa.util.StringUtilities;
 
-public class TaintChecker implements
-		SemanticCheck<SimpleAbstractState<MonolithicHeap, ValueEnvironment<Taint>, TypeEnvironment<InferredTypes>>,
+public class TaintChecker implements SemanticCheck<
+		SimpleAbstractState<
 				MonolithicHeap,
 				ValueEnvironment<Taint>,
-				TypeEnvironment<InferredTypes>> {
+				TypeEnvironment<InferredTypes>>,
+		MonolithicHeap,
+		ValueEnvironment<Taint>,
+		TypeEnvironment<InferredTypes>> {
 
 	public static final Annotation SINK_ANNOTATION = new Annotation("lisa.taint.Sink");
 	public static final AnnotationMatcher SINK_MATCHER = new BasicAnnotationMatcher(SINK_ANNOTATION);
 
-	private static final String[] suffixes = new String[] { "th", "st", "nd", "rd", "th", "th", "th", "th", "th",
-			"th" };
-
-	public static String ordinal(int i) {
-		switch (i % 100) {
-		case 11:
-		case 12:
-		case 13:
-			return i + "th";
-		default:
-			return i + suffixes[i % 10];
-
-		}
-	}
-
 	@Override
 	public void beforeExecution(CheckToolWithAnalysisResults<
-			SimpleAbstractState<MonolithicHeap, ValueEnvironment<Taint>, TypeEnvironment<InferredTypes>>, MonolithicHeap,
-			ValueEnvironment<Taint>, TypeEnvironment<InferredTypes>> tool) {
+			SimpleAbstractState<
+					MonolithicHeap,
+					ValueEnvironment<Taint>,
+					TypeEnvironment<InferredTypes>>,
+			MonolithicHeap,
+			ValueEnvironment<Taint>,
+			TypeEnvironment<InferredTypes>> tool) {
 	}
 
 	@Override
 	public void afterExecution(CheckToolWithAnalysisResults<
-			SimpleAbstractState<MonolithicHeap, ValueEnvironment<Taint>, TypeEnvironment<InferredTypes>>, MonolithicHeap,
-			ValueEnvironment<Taint>, TypeEnvironment<InferredTypes>> tool) {
+			SimpleAbstractState<
+					MonolithicHeap,
+					ValueEnvironment<Taint>,
+					TypeEnvironment<InferredTypes>>,
+			MonolithicHeap,
+			ValueEnvironment<Taint>,
+			TypeEnvironment<InferredTypes>> tool) {
 	}
 
 	@Override
-	public boolean visitUnit(
-			CheckToolWithAnalysisResults<
-					SimpleAbstractState<MonolithicHeap, ValueEnvironment<Taint>, TypeEnvironment<InferredTypes>>,
-					MonolithicHeap, ValueEnvironment<Taint>, TypeEnvironment<InferredTypes>> tool,
+	public boolean visitUnit(CheckToolWithAnalysisResults<
+			SimpleAbstractState<
+					MonolithicHeap,
+					ValueEnvironment<Taint>,
+					TypeEnvironment<InferredTypes>>,
+			MonolithicHeap,
+			ValueEnvironment<Taint>,
+			TypeEnvironment<InferredTypes>> tool,
 			Unit unit) {
 		return true;
 	}
 
 	@Override
-	public void visitGlobal(
-			CheckToolWithAnalysisResults<
-					SimpleAbstractState<MonolithicHeap, ValueEnvironment<Taint>, TypeEnvironment<InferredTypes>>,
-					MonolithicHeap, ValueEnvironment<Taint>, TypeEnvironment<InferredTypes>> tool,
-			Unit unit, Global global, boolean instance) {
+	public void visitGlobal(CheckToolWithAnalysisResults<
+			SimpleAbstractState<
+					MonolithicHeap,
+					ValueEnvironment<Taint>,
+					TypeEnvironment<InferredTypes>>,
+			MonolithicHeap,
+			ValueEnvironment<Taint>,
+			TypeEnvironment<InferredTypes>> tool,
+			Unit unit,
+			Global global,
+			boolean instance) {
 	}
 
 	@Override
 	public boolean visit(CheckToolWithAnalysisResults<
-			SimpleAbstractState<MonolithicHeap, ValueEnvironment<Taint>, TypeEnvironment<InferredTypes>>, MonolithicHeap,
-			ValueEnvironment<Taint>, TypeEnvironment<InferredTypes>> tool, CFG graph) {
+			SimpleAbstractState<
+					MonolithicHeap,
+					ValueEnvironment<Taint>,
+					TypeEnvironment<InferredTypes>>,
+			MonolithicHeap,
+			ValueEnvironment<Taint>,
+			TypeEnvironment<InferredTypes>> tool,
+			CFG graph) {
 		Parameter[] parameters = graph.getDescriptor().getFormals();
 		for (int i = 0; i < parameters.length; i++)
 			if (parameters[i].getAnnotations().contains(SINK_MATCHER))
 				for (Call call : tool.getCallSites(graph))
-					for (CFGWithAnalysisResults<
-							SimpleAbstractState<MonolithicHeap, ValueEnvironment<Taint>, TypeEnvironment<InferredTypes>>,
-							MonolithicHeap, ValueEnvironment<Taint>, TypeEnvironment<InferredTypes>> result : tool
-									.getResultOf(call.getCFG()))
-						if (result.getAnalysisStateAfter(call.getParameters()[i]).getState().getValueState()
-								.getValueOnStack().isTainted())
-							tool.warnOn(call, "The value passed for the " + ordinal(i + 1)
-									+ " parameter of this call is tainted, and it reaches the sink at parameter '"
-									+ parameters[i].getName() + "' of " + graph.getDescriptor().getFullName());
+					for (AnalyzedCFG<
+							SimpleAbstractState<
+									MonolithicHeap,
+									ValueEnvironment<Taint>,
+									TypeEnvironment<InferredTypes>>,
+							MonolithicHeap,
+							ValueEnvironment<Taint>,
+							TypeEnvironment<InferredTypes>> result : tool.getResultOf(call.getCFG())) {
+						AnalysisState<
+								SimpleAbstractState<
+										MonolithicHeap,
+										ValueEnvironment<Taint>,
+										TypeEnvironment<InferredTypes>>,
+								MonolithicHeap,
+								ValueEnvironment<Taint>,
+								TypeEnvironment<InferredTypes>> state = result
+										.getAnalysisStateAfter(call.getParameters()[i]);
+						ValueEnvironment<Taint> value = state.getState().getValueState();
+
+						try {
+							for (SymbolicExpression stack : state.getComputedExpressions())
+								for (SymbolicExpression vstack : state.rewrite(stack, call))
+									if (value.eval((ValueExpression) vstack, call).isTainted())
+										tool.warnOn(call, "The value passed for the " + StringUtilities.ordinal(i + 1)
+												+ " parameter of this call is tainted, and it reaches the sink at parameter '"
+												+ parameters[i].getName() + "' of "
+												+ graph.getDescriptor().getFullName());
+						} catch (SemanticException e) {
+							throw new AnalysisExecutionException(e);
+						}
+					}
 
 		return true;
 	}

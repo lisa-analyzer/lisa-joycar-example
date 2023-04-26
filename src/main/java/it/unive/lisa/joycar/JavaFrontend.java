@@ -129,11 +129,11 @@ import it.unive.lisa.program.cfg.statement.comparison.NotEqual;
 import it.unive.lisa.program.cfg.statement.literal.FalseLiteral;
 import it.unive.lisa.program.cfg.statement.literal.Int32Literal;
 import it.unive.lisa.program.cfg.statement.literal.TrueLiteral;
+import it.unive.lisa.program.type.BoolType;
+import it.unive.lisa.program.type.Int32Type;
 import it.unive.lisa.type.ReferenceType;
 import it.unive.lisa.type.Type;
 import it.unive.lisa.type.VoidType;
-import it.unive.lisa.type.common.BoolType;
-import it.unive.lisa.type.common.Int32Type;
 import it.unive.lisa.util.datastructures.graph.code.NodeList;
 
 public class JavaFrontend extends Java8ParserBaseVisitor<Object> {
@@ -154,10 +154,10 @@ public class JavaFrontend extends Java8ParserBaseVisitor<Object> {
 
 		CompilationUnitContext unit = parser.compilationUnit();
 		JavaFrontend frontend = new JavaFrontend(file);
-		ClassType.lookup(JavaObject.NAME, frontend.objectClass);
-		ClassType.lookup(JavaObject.SHORT_NAME, frontend.stringClass);
+		ClassType.create(JavaObject.NAME, frontend.objectClass);
+		ClassType.create(JavaObject.SHORT_NAME, frontend.objectClass);
 		new StringType(frontend.stringClass); // this will register it among the class types
-		ClassType.lookup(JNIEnv.SHORT_NAME, frontend.jniEnvClass);
+		ClassType.create(JNIEnv.SHORT_NAME, frontend.jniEnvClass);
 		
 		Program p = frontend.visitCompilationUnit(unit);
 
@@ -225,7 +225,7 @@ public class JavaFrontend extends Java8ParserBaseVisitor<Object> {
 
 		program.addUnit(currentUnit);
 
-		ClassType.lookup(name, currentUnit);
+		ClassType.create(name, currentUnit);
 
 		if (ctx.classBody().classBodyDeclaration() != null)
 			for (ClassBodyDeclarationContext decl : ctx.classBody().classBodyDeclaration())
@@ -333,7 +333,7 @@ public class JavaFrontend extends Java8ParserBaseVisitor<Object> {
 		// becomes the second param
 		Expression[] args = new Expression[1 + formals.length];
 		CodeLocation loc = fromContext(file, ctx);
-		args[0] = new JavaNewObj(currentCfg, loc, ClassType.lookup(JNIEnv.SHORT_NAME, null));
+		args[0] = new JavaNewObj(currentCfg, loc, ClassType.search(JNIEnv.SHORT_NAME));
 		for (int i = 0; i < formals.length; i++)
 			args[i + 1] = new VariableRef(currentCfg, loc, formals[i].getName());
 
@@ -367,7 +367,7 @@ public class JavaFrontend extends Java8ParserBaseVisitor<Object> {
 
 		if (!lastParsedStaticFlag) {
 			Parameter rec = new Parameter(fromContext(file, ctx), "this",
-					new ReferenceType(ClassType.lookup(currentUnit.getName(), null)));
+					new ReferenceType(ClassType.search(currentUnit.getName())));
 			formals = new LinkedList<>(formals);
 			formals.add(0, rec);
 		}
@@ -484,7 +484,7 @@ public class JavaFrontend extends Java8ParserBaseVisitor<Object> {
 	@Override
 	public Type visitUnannClassType_lfno_unannClassOrInterfaceType(
 			UnannClassType_lfno_unannClassOrInterfaceTypeContext ctx) {
-		return ClassType.lookup(ctx.Identifier().getText(), null);
+		return ClassType.search(ctx.Identifier().getText());
 	}
 
 	@Override
@@ -868,7 +868,7 @@ public class JavaFrontend extends Java8ParserBaseVisitor<Object> {
 	@Override
 	public Expression visitClassInstanceCreationExpression_lfno_primary(
 			ClassInstanceCreationExpression_lfno_primaryContext ctx) {
-		Type target = ClassType.lookup(ctx.Identifier(0).getText(), null);
+		Type target = ClassType.search(ctx.Identifier(0).getText());
 		if (ctx.argumentList() == null)
 			return new JavaNewObj(currentCfg, fromContext(file, ctx), target);
 		return new JavaNewObj(currentCfg, fromContext(file, ctx), target, visitArgumentList(ctx.argumentList()));

@@ -127,12 +127,12 @@ import it.unive.lisa.program.cfg.statement.comparison.LessThan;
 import it.unive.lisa.program.cfg.statement.comparison.NotEqual;
 import it.unive.lisa.program.cfg.statement.literal.Int32Literal;
 import it.unive.lisa.program.cfg.statement.literal.TrueLiteral;
+import it.unive.lisa.program.type.BoolType;
+import it.unive.lisa.program.type.Int32Type;
+import it.unive.lisa.program.type.Int64Type;
 import it.unive.lisa.type.ReferenceType;
 import it.unive.lisa.type.Type;
 import it.unive.lisa.type.VoidType;
-import it.unive.lisa.type.common.BoolType;
-import it.unive.lisa.type.common.Int32Type;
-import it.unive.lisa.type.common.Int64Type;
 import it.unive.lisa.util.datastructures.graph.code.NodeList;
 
 public class CppFrontend extends CPP14ParserBaseVisitor<Object> {
@@ -307,10 +307,10 @@ public class CppFrontend extends CPP14ParserBaseVisitor<Object> {
 			else if (name.equals("jint"))
 				return Int32Type.INSTANCE;
 			else if (name.equals("jobject"))
-				return ClassType.lookup(JavaObject.NAME, null);
+				return ClassType.search(JavaObject.NAME);
 			else if (name.equals("jboolean"))
 				return BoolType.INSTANCE;
-			return ClassType.lookup(name, null);
+			return ClassType.search(name);
 		}
 
 		throw notSupported(ctx);
@@ -609,9 +609,11 @@ public class CppFrontend extends CPP14ParserBaseVisitor<Object> {
 			VariableRef variable = (VariableRef) list.getLeft();
 			List<Type> seq = visitDeclSpecifierSeq(ctx.declSpecifierSeq());
 			if (seq.size() != 1)
+				// this is a sanity check to ensure that there is only one
+				// element
 				throw notSupported(ctx);
 
-			String name = seq.iterator().next().toString();
+			String name = ctx.declSpecifierSeq().getText();
 			return fromSingle(call(ctx, name, variable));
 		}
 

@@ -23,8 +23,12 @@ public class ClassType implements UnitType {
 		return types.values();
 	}
 
-	public static ClassType lookup(String name, CompilationUnit unit) {
+	public static ClassType create(String name, CompilationUnit unit) {
 		return types.computeIfAbsent(name, x -> new ClassType(name, unit));
+	}
+
+	public static ClassType search(String name) {
+		return types.get(name);
 	}
 
 	private final String name;
@@ -57,7 +61,7 @@ public class ClassType implements UnitType {
 
 		if (!other.isUnitType())
 			// valid since in this program we do not have cpp classes
-			return lookup(JavaObject.NAME, null);
+			return search(JavaObject.NAME);
 
 		if (canBeAssignedTo(other))
 			return other;
@@ -82,10 +86,10 @@ public class ClassType implements UnitType {
 				return current;
 
 			// null since we do not want to create new types here
-			current.unit.getImmediateAncestors().forEach(u -> ws.push(lookup(u.getName(), null)));
+			current.unit.getImmediateAncestors().forEach(u -> ws.push(search(u.getName())));
 		}
 
-		return lookup(JavaObject.NAME, null);
+		return search(JavaObject.NAME);
 	}
 
 	@Override
@@ -128,7 +132,7 @@ public class ClassType implements UnitType {
 	public Set<Type> allInstances(TypeSystem types) {
 		Set<Type> instances = new HashSet<>();
 		for (Unit in : unit.getInstances())
-			instances.add(lookup(in.getName(), null));
+			instances.add(search(in.getName()));
 		return instances;
 	}
 }

@@ -1,8 +1,8 @@
 package it.unive.lisa.joycar;
 
 import it.unive.lisa.analysis.Lattice;
-import it.unive.lisa.analysis.SemanticException;
 import it.unive.lisa.analysis.SemanticDomain.Satisfiability;
+import it.unive.lisa.analysis.SemanticException;
 import it.unive.lisa.analysis.nonrelational.value.BaseNonRelationalValueDomain;
 import it.unive.lisa.analysis.nonrelational.value.ValueEnvironment;
 import it.unive.lisa.analysis.representation.DomainRepresentation;
@@ -27,7 +27,7 @@ import it.unive.lisa.symbolic.value.operator.ternary.TernaryOperator;
 import it.unive.lisa.symbolic.value.operator.unary.LogicalNegation;
 import it.unive.lisa.symbolic.value.operator.unary.UnaryOperator;
 
-public class Taint extends BaseNonRelationalValueDomain<Taint> {
+public class Taint implements BaseNonRelationalValueDomain<Taint> {
 
 	public static final Annotation TAINTED_ANNOTATION = new Annotation("lisa.taint.Tainted");
 
@@ -57,7 +57,7 @@ public class Taint extends BaseNonRelationalValueDomain<Taint> {
 	public Taint variable(Identifier id, ProgramPoint pp) throws SemanticException {
 		Annotations annots = id.getAnnotations();
 		if (annots.isEmpty())
-			return super.variable(id, pp);
+			return BaseNonRelationalValueDomain.super.variable(id, pp);
 
 		if (annots.contains(TAINTED_MATCHER))
 			return TAINTED;
@@ -65,7 +65,7 @@ public class Taint extends BaseNonRelationalValueDomain<Taint> {
 		if (annots.contains(CLEAN_MATCHER))
 			return CLEAN;
 
-		return super.variable(id, pp);
+		return BaseNonRelationalValueDomain.super.variable(id, pp);
 	}
 
 	@Override

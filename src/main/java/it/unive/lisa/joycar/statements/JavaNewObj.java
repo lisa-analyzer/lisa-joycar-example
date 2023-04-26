@@ -21,8 +21,8 @@ import it.unive.lisa.program.cfg.statement.VariableRef;
 import it.unive.lisa.program.cfg.statement.call.Call.CallType;
 import it.unive.lisa.program.cfg.statement.call.UnresolvedCall;
 import it.unive.lisa.symbolic.SymbolicExpression;
-import it.unive.lisa.symbolic.heap.HeapAllocation;
 import it.unive.lisa.symbolic.heap.HeapReference;
+import it.unive.lisa.symbolic.heap.MemoryAllocation;
 import it.unive.lisa.symbolic.value.Identifier;
 import it.unive.lisa.type.ReferenceType;
 import it.unive.lisa.type.Type;
@@ -47,7 +47,7 @@ public class JavaNewObj extends NaryExpression {
 		ReferenceType reftype = new ReferenceType(type);
 		CodeLocation location = getLocation();
 
-		HeapAllocation created = new HeapAllocation(type, location);
+		MemoryAllocation created = new MemoryAllocation(type, location);
 		HeapReference ref = new HeapReference(reftype, created, location);
 		created.setRuntimeTypes(Collections.singleton(type));
 		ref.setRuntimeTypes(Collections.singleton(reftype));

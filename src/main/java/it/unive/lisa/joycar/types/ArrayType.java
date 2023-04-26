@@ -73,7 +73,7 @@ public class ArrayType implements it.unive.lisa.type.ArrayType {
 			return this;
 
 		if (!other.isArrayType())
-			return ClassType.lookup(JavaObject.NAME, null);
+			return ClassType.search(JavaObject.NAME);
 
 		return getInnerType().commonSupertype(other.asArrayType().getInnerType());
 	}
